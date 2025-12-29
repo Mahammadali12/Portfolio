@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mahammadali Zamani - 3D Resume Portfolio</title>
     <style>
-
         /* Ensure 3D canvas doesn't block UI */
     canvas {
         position: absolute;
@@ -392,6 +391,7 @@
                 color: 0xff7251,
                 title: "👤 Profile",
                 icon: "👤",
+                buildingType: "center",
                 content: `
                     <h3 class="section-title">Mahammadali Zamani</h3>
                     <img src="profile.jpg" alt="Mahammadali Zamani" class="profile-photo" onerror="this.style.display='none'">
@@ -430,6 +430,7 @@
                 color: 0x9b2948,
                 title: "🎓 Education",
                 icon: "🎓",
+                buildingType: "university",
                 content: `
                     <h3 class="section-title">Education</h3>
                     <div class="project-item">
@@ -454,6 +455,7 @@
                 color: 0xffca7b,
                 title: "💼 Experience",
                 icon: "💼",
+                buildingType: "office",
                 content: `
                     <h3 class="section-title">Work Experience</h3>
                     <div class="project-item">
@@ -471,6 +473,7 @@
                 color: 0xffcd74,
                 title: "🚀 Projects",
                 icon: "🚀",
+                buildingType: "lab",
                 content: `
                     <h3 class="section-title">Technical Projects</h3>
                     <div class="project-item">
@@ -499,6 +502,7 @@
                 color: 0xffedbf,
                 title: "⚡ Skills",
                 icon: "⚡",
+                buildingType: "tower",
                 content: `
                     <h3 class="section-title">Technical Skills</h3>
                     <div class="skill-category">
@@ -581,6 +585,215 @@
         // Create section markers and labels
         const sectionMeshes = [];
         const sectionLabels = [];
+        const sectionBuildings = [];
+
+        // Function to create low poly buildings
+        function createLowPolyBuilding(type, color, position) {
+            const buildingGroup = new THREE.Group();
+            const baseColor = color;
+            
+            switch(type) {
+                case 'center': // Main profile building
+                    // Main base
+                    const baseGeometry1 = new THREE.BoxGeometry(5, 10, 5);
+                    const baseMaterial1 = new THREE.MeshPhongMaterial({ 
+                        color: baseColor,
+                        shininess: 30
+                    });
+                    const base1 = new THREE.Mesh(baseGeometry1, baseMaterial1);
+                    base1.position.y = 5;
+                    base1.castShadow = true;
+                    base1.receiveShadow = true;
+                    buildingGroup.add(base1);
+                    
+                    // Pyramid roof
+                    const pyramidGeometry = new THREE.ConeGeometry(3.5, 4, 4);
+                    const pyramidMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x9b2948,
+                        shininess: 20
+                    });
+                    const pyramid = new THREE.Mesh(pyramidGeometry, pyramidMaterial);
+                    pyramid.position.y = 12;
+                    pyramid.castShadow = true;
+                    buildingGroup.add(pyramid);
+                    
+                    // Decorative windows
+                    for(let i = 0; i < 4; i++) {
+                        const windowGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.1);
+                        const windowMaterial = new THREE.MeshPhongMaterial({ 
+                            color: 0xffcd74,
+                            emissive: 0xffcd74,
+                            emissiveIntensity: 0.3
+                        });
+                        const window = new THREE.Mesh(windowGeometry, windowMaterial);
+                        window.position.set(
+                            i % 2 === 0 ? -1.5 : 1.5,
+                            3 + Math.floor(i/2) * 3,
+                            2.6
+                        );
+                        buildingGroup.add(window);
+                    }
+                    break;
+                    
+                case 'university': // Education building
+                    // Wide base
+                    const baseGeometry2 = new THREE.BoxGeometry(7, 8, 7);
+                    const baseMaterial2 = new THREE.MeshPhongMaterial({ 
+                        color: baseColor,
+                        shininess: 30
+                    });
+                    const base2 = new THREE.Mesh(baseGeometry2, baseMaterial2);
+                    base2.position.y = 4;
+                    base2.castShadow = true;
+                    base2.receiveShadow = true;
+                    buildingGroup.add(base2);
+                    
+                    // Flat roof with railing
+                    const roofGeometry = new THREE.BoxGeometry(8, 0.5, 8);
+                    const roofMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x3a1c00
+                    });
+                    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+                    roof.position.y = 8.25;
+                    buildingGroup.add(roof);
+                    
+                    // Columns
+                    for(let i = 0; i < 4; i++) {
+                        const columnGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2);
+                        const columnMaterial = new THREE.MeshPhongMaterial({ 
+                            color: 0xffcd74
+                        });
+                        const column = new THREE.Mesh(columnGeometry, columnMaterial);
+                        const angle = (i / 4) * Math.PI * 2;
+                        column.position.set(
+                            Math.cos(angle) * 2.5,
+                            5,
+                            Math.sin(angle) * 2.5
+                        );
+                        buildingGroup.add(column);
+                    }
+                    break;
+                    
+                case 'office': // Experience building
+                    // Modern office tower
+                    const towerGeometry = new THREE.BoxGeometry(4, 14, 4);
+                    const towerMaterial = new THREE.MeshPhongMaterial({ 
+                        color: baseColor,
+                        shininess: 40
+                    });
+                    const tower = new THREE.Mesh(towerGeometry, towerMaterial);
+                    tower.position.y = 7;
+                    tower.castShadow = true;
+                    tower.receiveShadow = true;
+                    buildingGroup.add(tower);
+                    
+                    // Office windows grid
+                    for(let i = 0; i < 3; i++) {
+                        for(let j = 0; j < 4; j++) {
+                            const officeWindowGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.1);
+                            const officeWindowMaterial = new THREE.MeshPhongMaterial({ 
+                                color: 0x00a8ff,
+                                emissive: 0x00a8ff,
+                                emissiveIntensity: 0.4
+                            });
+                            const officeWindow = new THREE.Mesh(officeWindowGeometry, officeWindowMaterial);
+                            officeWindow.position.set(
+                                -1.2 + i * 1.2,
+                                3 + j * 2.5,
+                                2.1
+                            );
+                            buildingGroup.add(officeWindow);
+                        }
+                    }
+                    
+                    // Rooftop structure
+                    const rooftopGeometry = new THREE.BoxGeometry(5, 2, 5);
+                    const rooftopMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x3a1c00
+                    });
+                    const rooftop = new THREE.Mesh(rooftopGeometry, rooftopMaterial);
+                    rooftop.position.y = 15;
+                    buildingGroup.add(rooftop);
+                    break;
+                    
+                case 'lab': // Projects building
+                    // Main lab structure
+                    const labBaseGeometry = new THREE.BoxGeometry(6, 6, 6);
+                    const labBaseMaterial = new THREE.MeshPhongMaterial({ 
+                        color: baseColor,
+                        shininess: 35
+                    });
+                    const labBase = new THREE.Mesh(labBaseGeometry, labBaseMaterial);
+                    labBase.position.y = 3;
+                    labBase.castShadow = true;
+                    labBase.receiveShadow = true;
+                    buildingGroup.add(labBase);
+                    
+                    // Dome on top
+                    const domeGeometry = new THREE.SphereGeometry(3.5, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+                    const domeMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x00a8ff,
+                        transparent: true,
+                        opacity: 0.7
+                    });
+                    const dome = new THREE.Mesh(domeGeometry, domeMaterial);
+                    dome.position.y = 9;
+                    dome.rotation.x = Math.PI;
+                    buildingGroup.add(dome);
+                    
+                    // Antenna
+                    const antennaGeometry = new THREE.CylinderGeometry(0.1, 0.1, 3);
+                    const antennaMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x333333
+                    });
+                    const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+                    antenna.position.y = 12.5;
+                    buildingGroup.add(antenna);
+                    break;
+                    
+                case 'tower': // Skills building
+                    // Tall skill tower
+                    const skillTowerGeometry = new THREE.BoxGeometry(3, 16, 3);
+                    const skillTowerMaterial = new THREE.MeshPhongMaterial({ 
+                        color: baseColor,
+                        shininess: 50
+                    });
+                    const skillTower = new THREE.Mesh(skillTowerGeometry, skillTowerMaterial);
+                    skillTower.position.y = 8;
+                    skillTower.castShadow = true;
+                    skillTower.receiveShadow = true;
+                    buildingGroup.add(skillTower);
+                    
+                    // Decorative rings
+                    for(let i = 0; i < 3; i++) {
+                        const ringGeometry = new THREE.TorusGeometry(2.2, 0.3, 8, 12);
+                        const ringMaterial = new THREE.MeshPhongMaterial({ 
+                            color: 0xffcd74
+                        });
+                        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                        ring.position.y = 3 + i * 5;
+                        ring.rotation.x = Math.PI / 2;
+                        buildingGroup.add(ring);
+                    }
+                    
+                    // Spire on top
+                    const spireGeometry = new THREE.ConeGeometry(0.5, 4, 4);
+                    const spireMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0xffffff,
+                        emissive: 0xffffff,
+                        emissiveIntensity: 0.2
+                    });
+                    const spire = new THREE.Mesh(spireGeometry, spireMaterial);
+                    spire.position.y = 20;
+                    buildingGroup.add(spire);
+                    break;
+            }
+            
+            // Position the building
+            buildingGroup.position.set(position.x, 0, position.z);
+            
+            return buildingGroup;
+        }
 
         Object.keys(sections).forEach(key => {
             const section = sections[key];
@@ -629,6 +842,11 @@
 
             // Create billboard label that always faces camera
             createBillboardLabel(section);
+            
+            // Create low poly building for this section
+            const building = createLowPolyBuilding(section.buildingType, section.color, section.position);
+            scene.add(building);
+            sectionBuildings.push(building);
         });
 
         function createBillboardLabel(section) {
@@ -692,7 +910,7 @@
         let carVelocity = new THREE.Vector3(0, 0, 0);
         let carAcceleration = 0.25;      // 2.5x faster
         let carDeceleration = 0.92;       // More friction
-        let maxSpeed = 10.5;               // 50% higher speed
+        let maxSpeed = 1.5;               // 50% higher speed
         let driftFactor = 0.85;
         let turnSpeed = 0.08;             // Faster turning
         let isDrifting = false;
