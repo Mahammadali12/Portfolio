@@ -446,9 +446,7 @@
         <div class="loading-spinner"></div>
         <div>Loading 3D Environment...</div>
     </div>
-    <audio id="engineSound" loop>
-        <source src="https://assets.mixkit.co/sfx/preview/mixkit-car-engine-starting-1587.mp3" type="audio/mpeg">
-    </audio>
+    
 
     <script type="importmap">
         {
@@ -1301,11 +1299,11 @@
                         touchArrow.classList.add('show');
                         if (Math.abs(deltaX) > Math.abs(deltaY)) {
                             if (deltaX > 0) {
-                                touchArrow.classList.remove('left');
-                                touchArrow.classList.add('right');
-                            } else {
                                 touchArrow.classList.remove('right');
                                 touchArrow.classList.add('left');
+                            } else {
+                                touchArrow.classList.remove('left');
+                                touchArrow.classList.add('right');
                             }
                         }
                     } else {
@@ -1688,7 +1686,7 @@
                         carVelocity.add(forward.clone().multiplyScalar(-carAcceleration * 0.1));
                         isAccelerating = true;
                         
-                        // Swipe detection for turning
+                        // Swipe detection for turning (REVERSED)
                         if (swipeDistance > swipeThreshold) {
                             const swipeAngle = Math.atan2(deltaY, deltaX);
                             const horizontalSwipe = Math.abs(Math.cos(swipeAngle));
@@ -1698,11 +1696,11 @@
                                 const turnIntensity = Math.min(swipeDistance / 100, 1.5);
                                 
                                 if (deltaX > 0) {
-                                    // Swipe right = turn right
-                                    car.rotation.y -= turnSpeed * turnIntensity * (Math.min(carVelocity.length(), 0.5) / 0.5);
-                                } else {
-                                    // Swipe left = turn left
+                                    // Swipe right = turn left
                                     car.rotation.y += turnSpeed * turnIntensity * (Math.min(carVelocity.length(), 0.5) / 0.5);
+                                } else {
+                                    // Swipe left = turn right
+                                    car.rotation.y -= turnSpeed * turnIntensity * (Math.min(carVelocity.length(), 0.5) / 0.5);
                                 }
                             }
                         }
@@ -1857,38 +1855,7 @@
             hideSectionInfo();
         };
 
-        // Test panel visibility - temporary
-        setTimeout(() => {
-            const sectionInfo = document.getElementById('section-info');
-            const sectionContent = document.getElementById('section-content');
-            
-            // Force test visibility
-            sectionContent.innerHTML = `
-                <h3 class="section-title">Test Panel</h3>
-                <div class="project-item">
-                    <h4>Panel Visibility Test</h4>
-                    <p>If you can see this, the panel is working!</p>
-                    <p>Click the X to close.</p>
-                </div>
-            `;
-            
-            // Show the panel immediately for testing
-            setTimeout(() => {
-                sectionInfo.classList.add('panel-show');
-                setTimeout(() => {
-                    sectionContent.classList.add('section-content-animate');
-                }, 300);
-                
-                // Auto-close after 5 seconds
-                setTimeout(() => {
-                    sectionInfo.classList.remove('panel-show');
-                    sectionContent.classList.remove('section-content-animate');
-                    setTimeout(() => {
-                        sectionContent.innerHTML = '';
-                    }, 500);
-                }, 5000);
-            }, 1000);
-        }, 2000);
+       
     </script>
 </body>
 </html>
