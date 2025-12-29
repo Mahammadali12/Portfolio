@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mahammadali Zamani - 3D Resume Portfolio</title>
     <style>
         /* Ensure 3D canvas doesn't block UI */
@@ -255,6 +256,125 @@
         }
 
 
+        /* Mobile Controls */
+        #mobile-controls {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        #touch-indicator {
+            width: 80px;
+            height: 80px;
+            position: relative;
+        }
+
+        .touch-circle {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(255, 237, 191, 0.6);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.2s ease;
+        }
+
+        .touch-circle.active {
+            border-color: #ffcd74;
+            box-shadow: 0 0 20px rgba(255, 205, 116, 0.6);
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+
+        .touch-arrow {
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 25px solid rgba(255, 205, 116, 0.7);
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: all 0.2s ease;
+        }
+
+        .touch-arrow.show {
+            opacity: 1;
+        }
+
+        .touch-arrow.left {
+            transform: translateX(-50%) rotate(-90deg);
+        }
+
+        .touch-arrow.right {
+            transform: translateX(-50%) rotate(90deg);
+        }
+
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            #section-info {
+                width: 90%;
+                max-width: 350px;
+                right: -100%;
+                top: 10px;
+                max-height: 70vh;
+                font-size: 14px;
+            }
+
+            #section-info.panel-show {
+                right: 5%;
+            }
+
+            .section-title {
+                font-size: 1.3em;
+            }
+
+            .project-item {
+                padding: 10px 12px;
+                font-size: 0.9em;
+            }
+
+            #hint {
+                font-size: 14px;
+                padding: 8px 15px;
+                top: 10px;
+            }
+
+            #controls {
+                display: none; /* Hide WASD hint on mobile */
+            }
+
+            .close-btn {
+                width: 35px;
+                height: 35px;
+                font-size: 20px;
+            }
+        }
+
+        /* Prevent text selection on mobile */
+        @media (hover: none) and (pointer: coarse) {
+            body {
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+                -webkit-touch-callout: none;
+            }
+        }
+
+        /* Ensure canvas is touchable on mobile */
+        canvas {
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+
         #hint {
             position: absolute;
             top: 20px;
@@ -301,11 +421,20 @@
 </head>
 <body>
     <div id="hint">
-        ⚡ Drive into colored sections to view content
+        <span id="hint-desktop">⚡ Use WASD to drive into colored sections</span>
+        <span id="hint-mobile" style="display: none;">👆 Hold to drive, swipe to turn</span>
+    </div>
+
+    <div id="mobile-controls" style="display: none;">
+        <div id="touch-indicator">
+            <div class="touch-circle"></div>
+            <div class="touch-arrow"></div>
+        </div>
     </div>
 
     <div id="section-info">
-        <button class="close-btn" onclick="window.hideSectionInfo()">✕</button>
+        <!-- <button class="close-btn" onclick="window.hideSectionInfo()">✕</button> -->
+        <button class="close-btn" onclick="window.hideSectionInfo()" ontouchstart="window.hideSectionInfo()">✕</button>
         <div id="section-content"></div>
     </div>
 
@@ -337,6 +466,8 @@
 
         // Scene setup - NO FOG
         const scene = new THREE.Scene();
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                         (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
 
         // Camera setup - START WITH ZOOMED OUT VIEW
         const aspect = window.innerWidth / window.innerHeight;
@@ -367,7 +498,12 @@
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controls.enableZoom = true;
+
         controls.enablePan = false;
+        controls.enabled = !isMobile; // Disable orbit controls on mobile for better touch handling
+
+
+
         controls.minDistance = 30;
         controls.maxDistance = 150;
         controls.maxPolarAngle = Math.PI / 2.2;
@@ -918,6 +1054,19 @@
         let isAccelerating = false;
         let isBraking = false;
 
+
+        // Mobile detection and touch controls
+        
+        // Touch control variables
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchCurrentX = 0;
+        let touchCurrentY = 0;
+        let isTouching = false;
+        let touchStartTime = 0;
+        let swipeThreshold = 30; // Minimum distance for swipe detection
+        let holdThreshold = 100; // Milliseconds to detect hold vs tap
+
         // Key states
         const keyStates = {
             w: false,
@@ -1093,6 +1242,95 @@
             }
         });
 
+
+                // Touch event handlers for mobile
+        if (isMobile) {
+            // Show mobile hint and controls
+            document.getElementById('hint-mobile').style.display = 'inline';
+            document.getElementById('hint-desktop').style.display = 'none';
+            document.getElementById('mobile-controls').style.display = 'block';
+
+            const touchIndicator = document.querySelector('.touch-circle');
+            const touchArrow = document.querySelector('.touch-arrow');
+
+            // Prevent default touch behaviors
+            renderer.domElement.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+
+            renderer.domElement.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+
+            // Touch start
+            document.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+
+                    // Don't register touch if it's on UI elements
+                    const target = e.target;
+                    if (target.closest('#section-info') || target.closest('.close-btn')) {
+                        return;
+                    }
+
+                    touchStartX = touch.clientX;
+                    touchStartY = touch.clientY;
+                    touchCurrentX = touch.clientX;
+                    touchCurrentY = touch.clientY;
+                    isTouching = true;
+                    touchStartTime = Date.now();
+
+                    // Visual feedback
+                    touchIndicator.classList.add('active');
+                }
+            }, { passive: false });
+
+            // Touch move
+            document.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isTouching) {
+                    const touch = e.touches[0];
+                    touchCurrentX = touch.clientX;
+                    touchCurrentY = touch.clientY;
+
+                    const deltaX = touchCurrentX - touchStartX;
+                    const deltaY = touchCurrentY - touchStartY;
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+                    // Show direction arrow for swipes
+                    if (distance > swipeThreshold) {
+                        touchArrow.classList.add('show');
+                        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                            if (deltaX > 0) {
+                                touchArrow.classList.remove('left');
+                                touchArrow.classList.add('right');
+                            } else {
+                                touchArrow.classList.remove('right');
+                                touchArrow.classList.add('left');
+                            }
+                        }
+                    } else {
+                        touchArrow.classList.remove('show');
+                    }
+                }
+            }, { passive: false });
+
+            // Touch end
+            document.addEventListener('touchend', (e) => {
+                isTouching = false;
+                touchIndicator.classList.remove('active');
+                touchArrow.classList.remove('show');
+                touchArrow.classList.remove('left');
+                touchArrow.classList.remove('right');
+            }, { passive: false });
+
+            // Also handle touch cancel
+            document.addEventListener('touchcancel', (e) => {
+                isTouching = false;
+                touchIndicator.classList.remove('active');
+                touchArrow.classList.remove('show');
+            }, { passive: false });
+        }
+
         // Section detection
         let currentSection = null;
         let boundaryWarningTimeout = null;
@@ -1153,6 +1391,12 @@
 
             // Reset animation flags
             if (isPanelAnimating) return;
+
+             // NEW: On mobile, prevent touch events from propagating to canvas when panel is open
+            if (isMobile) {
+                const sectionInfo = document.getElementById('section-info');
+                sectionInfo.style.pointerEvents = 'auto';
+            }
 
             isPanelAnimating = true;
             const section = sections[sectionKey];
@@ -1402,76 +1646,127 @@
             requestAnimationFrame(animate);
 
             // Car movement with boundary checking
-            if (car) {
+                if (car) {
                 // Calculate forward direction
                 const forward = new THREE.Vector3(
                     -Math.sin(car.rotation.y),
                     0,
                     -Math.cos(car.rotation.y)
                 );
-
-                // Apply acceleration
-                if (keyStates.w) {
-                    carVelocity.add(forward.clone().multiplyScalar(-carAcceleration * 0.1));
-                    isAccelerating = true;
-                } else if (keyStates.s) {
-                    carVelocity.add(forward.clone().multiplyScalar(carAcceleration * 0.08));
-                    isBraking = true;
-                } else {
-                    isAccelerating = false;
-                    isBraking = false;
+                        
+                // Desktop controls (WASD)
+                if (!isMobile) {
+                    // Apply acceleration
+                    if (keyStates.w) {
+                        carVelocity.add(forward.clone().multiplyScalar(-carAcceleration * 0.1));
+                        isAccelerating = true;
+                    } else if (keyStates.s) {
+                        carVelocity.add(forward.clone().multiplyScalar(carAcceleration * 0.08));
+                        isBraking = true;
+                    } else {
+                        isAccelerating = false;
+                        isBraking = false;
+                    }
+                
+                    // Apply steering
+                    if (keyStates.a) {
+                        car.rotation.y += turnSpeed * (Math.min(carVelocity.length(), 0.5) / 0.5);
+                    }
+                    if (keyStates.d) {
+                        car.rotation.y -= turnSpeed * (Math.min(carVelocity.length(), 0.5) / 0.5);
+                    }
+                } 
+                // Mobile touch controls
+                else {
+                    if (isTouching) {
+                        const touchDuration = Date.now() - touchStartTime;
+                        const deltaX = touchCurrentX - touchStartX;
+                        const deltaY = touchCurrentY - touchStartY;
+                        const swipeDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                        
+                        // Holding = accelerate forward
+                        carVelocity.add(forward.clone().multiplyScalar(-carAcceleration * 0.1));
+                        isAccelerating = true;
+                        
+                        // Swipe detection for turning
+                        if (swipeDistance > swipeThreshold) {
+                            const swipeAngle = Math.atan2(deltaY, deltaX);
+                            const horizontalSwipe = Math.abs(Math.cos(swipeAngle));
+                            
+                            // If swipe is mostly horizontal
+                            if (horizontalSwipe > 0.7) {
+                                const turnIntensity = Math.min(swipeDistance / 100, 1.5);
+                                
+                                if (deltaX > 0) {
+                                    // Swipe right = turn right
+                                    car.rotation.y -= turnSpeed * turnIntensity * (Math.min(carVelocity.length(), 0.5) / 0.5);
+                                } else {
+                                    // Swipe left = turn left
+                                    car.rotation.y += turnSpeed * turnIntensity * (Math.min(carVelocity.length(), 0.5) / 0.5);
+                                }
+                            }
+                        }
+                    } else {
+                        isAccelerating = false;
+                        isBraking = false;
+                    }
                 }
+        
+            // Apply friction/drag (same for both)
+            carVelocity.multiplyScalar(carDeceleration);
+        
+            // Limit max speed
+            if (carVelocity.length() > maxSpeed) {
+                carVelocity.setLength(maxSpeed);
+            }
+        
+            // Detect drift state
+            const speed = carVelocity.length();
 
-                // Apply steering
-                if (keyStates.a) {
-                    car.rotation.y += turnSpeed * (Math.min(carVelocity.length(), 0.5) / 0.5);
-                }
-                if (keyStates.d) {
-                    car.rotation.y -= turnSpeed * (Math.min(carVelocity.length(), 0.5) / 0.5);
-                }
-
-                // Apply friction/drag
-                carVelocity.multiplyScalar(carDeceleration);
-
-                // Limit max speed
-                if (carVelocity.length() > maxSpeed) {
-                    carVelocity.setLength(maxSpeed);
-                }
-
-                // Detect drift state
-                const speed = carVelocity.length();
+            if (!isMobile) {
                 isDrifting = speed > 0.5 && (keyStates.a || keyStates.d);
-                if (isDrifting) {
-                    const velocityDir = carVelocity.clone().normalize();
-                    const blendedDir = velocityDir.lerp(forward, 0.08);
-                    carVelocity.copy(blendedDir.multiplyScalar(speed));
-                    if (Math.random() > 0.5) createDriftTrail();
-                    driftAngle = keyStates.a ? 0.3 : (keyStates.d ? -0.3 : 0);
-                } else {
-                    driftAngle = 0;
-                }
-
-                // Car tilt effect
-                car.rotation.z = driftAngle * 0.3;
-
-                // Update position with boundary checking
-                const newX = car.position.x + carVelocity.x;
-                const newZ = car.position.z + carVelocity.z;
-
-                if (isWithinBoundaries(newX, newZ)) {
-                    car.position.x = newX;
-                    car.position.z = newZ;
-                } else {
-                    // Bounce off boundaries with energy loss
-                    carVelocity.multiplyScalar(-0.3);
-                }
-
-                // Create dust VFX when moving
-                if (carVelocity.length() > 0.1) {
-                    createDustParticles();
-                }
+            } else {
+                // Mobile drift detection based on turn rate
+                const deltaX = touchCurrentX - touchStartX;
+                isDrifting = isTouching && speed > 0.5 && Math.abs(deltaX) > swipeThreshold * 1.5;
             }
 
+            if (isDrifting) {
+                const velocityDir = carVelocity.clone().normalize();
+                const blendedDir = velocityDir.lerp(forward, 0.08);
+                carVelocity.copy(blendedDir.multiplyScalar(speed));
+                if (Math.random() > 0.5) createDriftTrail();
+
+                if (!isMobile) {
+                    driftAngle = keyStates.a ? 0.3 : (keyStates.d ? -0.3 : 0);
+                } else {
+                    const deltaX = touchCurrentX - touchStartX;
+                    driftAngle = (deltaX > 0 ? -0.3 : 0.3);
+                }
+            } else {
+                driftAngle = 0;
+            }
+        
+            // Car tilt effect
+            car.rotation.z = driftAngle * 0.3;
+        
+            // Update position with boundary checking
+            const newX = car.position.x + carVelocity.x;
+            const newZ = car.position.z + carVelocity.z;
+        
+            if (isWithinBoundaries(newX, newZ)) {
+                car.position.x = newX;
+                car.position.z = newZ;
+            } else {
+                // Bounce off boundaries with energy loss
+                carVelocity.multiplyScalar(-0.3);
+            }
+        
+            // Create dust VFX when moving
+            if (carVelocity.length() > 0.1) {
+                createDustParticles();
+            }
+        }
             // Update dust particles and drift trails
             updateDustParticles();
             updateDriftTrails();
@@ -1486,6 +1781,22 @@
             controls.update();
 
             renderer.render(scene, camera);
+        }
+
+
+        if (isMobile) {
+            // Reduce shadow quality on mobile
+            renderer.shadowMap.enabled = true;
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+
+            // Reduce antialiasing on mobile if needed
+            if (window.devicePixelRatio > 2) {
+                renderer.setPixelRatio(2);
+            }
+
+            // Disable orbit controls damping on mobile for better performance
+            controls.enableDamping = false;
         }
 
         // Handle window resize
