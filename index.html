@@ -316,6 +316,31 @@
             transform: translateX(-50%) rotate(90deg);
         }
 
+        #mobile-section-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 18px;
+            border-radius: 999px;
+            border: none;
+            background: #ff7251;
+            color: #ffedbf;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+            z-index: 10000;
+            display: none;
+            opacity: 0;
+            transform: translateY(10px) scale(0.9);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        #mobile-section-btn.show{
+            display: block;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
         /* Mobile responsive adjustments */
         @media (max-width: 768px) {
             #section-info {
@@ -325,6 +350,16 @@
                 top: 10px;
                 max-height: 70vh;
                 font-size: 14px;
+            }
+
+            #mobile-section-btn {
+                right: 50%;
+                transform: translateX(50%) translateY(10px) scale(0.9);
+                bottom: 25px;
+            }
+
+            #mobile-section-btn.show {
+                transform: translateX(50%), translateY(0), scale(1);
             }
 
             #section-info.panel-show {
@@ -425,6 +460,11 @@
         <span id="hint-mobile" style="display: none;">👆 Hold to drive, swipe to turn</span>
     </div>
 
+    <button id="mobile-section-btn" style="display:none;">
+        Open section
+    </button>
+
+
     <div id="mobile-controls" style="display: none;">
         <div id="touch-indicator">
             <div class="touch-circle"></div>
@@ -511,6 +551,9 @@
     controls.target.set(0, 0, 0);
     controls.enabled = !isMobile; // Disable orbit controls on mobile
     controls.update();
+
+    let mobilePendingSection = null;
+    const mobileSectionBtn = document.getElementById('mobile-section-btn');
 
     // Define play area boundaries (match ground size)
     const BOUNDARY = {
@@ -1280,6 +1323,21 @@
     // Initialize scene
     createCar();
 
+
+    if (mobileSectionBtn) {
+      mobileSectionBtn.addEventListener('click', () => {
+        if (mobilePendingSection) {
+            mobileSectionBtn.classList.remove('show'); // Hide after click
+            setTimeout(() => {
+                mobileSectionBtn.style.display = 'none';
+            }, 250);
+
+
+          showSectionInfo(mobilePendingSection);
+        }
+      });
+    }
+
     // Key listeners
     document.addEventListener('keydown', (e) => {
         const key = e.key.toLowerCase();
@@ -1391,6 +1449,7 @@
             
         const carPos = car.position;
         let foundSection = false;
+        let foundKey = null;
             
         for (const [key, section] of Object.entries(sections)) {
             const sectionBounds = {
@@ -1404,18 +1463,63 @@
                 }
             };
         
-            if (carPos.x > sectionBounds.x.min && carPos.x < sectionBounds.x.max &&
-                carPos.z > sectionBounds.z.min && carPos.z < sectionBounds.z.max) {
+            if (
+                carPos.x > sectionBounds.x.min &&
+                carPos.x < sectionBounds.x.max &&
+                carPos.z > sectionBounds.z.min &&
+                carPos.z < sectionBounds.z.max
+                ) {
                 
                 foundSection = true;
+                foundKey = key;
+                break;
                 
                 // Only open if it's a different section or panel is closed
-                if (currentSection !== key) {
-                    showSectionInfo(key);
-                }
+                // if (currentSection !== key) {
+                //     showSectionInfo(key);
+                // }
                 return;
             }
         }
+
+        if (foundSection) {
+            if (isMobile) {
+                // On mobile: show button, do NOT open panel automatically
+                mobilePendingSection = foundKey;
+
+                if (mobileSectionBtn) {
+                    mobileSectionBtn.style.display = 'block';
+                    mobileSectionBtn.textContent = 
+                    sections[foundKey].title.replace(/^[^A-Za-z0-9]+/, ''); //optional: name button for section title
+                    mobileSectionBtn.style.display = 'block';
+                    void mobileSectionBtn.offsetWidth;  // NEW: reflow hack
+                    mobileSectionBtn.classList.add('show'); // NEW: animate in
+                }
+            }else{
+                    // Desktop: keep old behavior
+                    if (currentSection !== foundKey) {
+                        showSectionInfo(foundKey);
+                    }
+                }
+            return;
+        }
+
+
+          // Car left all sections
+        if (isMobile) {
+            mobilePendingSection = null;
+            if (mobileSectionBtn) {
+                mobileSectionBtn.classList.remove('show'); // NEW: animate out
+                setTimeout(() => {
+                    //Only hide if still not in a section
+                    if (!mobilePendingSection) {
+                        mobileSectionBtn.style.display = 'none'; //Fully hide
+                    }
+                }, 250);
+                mobileSectionBtn.style.display = 'none';
+            }
+        }
+
         
         // If car leaves all sections and panel is open, close it
         if (currentSection !== null && !foundSection && !panelCooldown) {
@@ -1432,6 +1536,15 @@
 
         // Reset animation flags
         if (isPanelAnimating) return;
+
+
+          // NEW: hide mobile button once panel is opening
+        if (isMobile && mobileSectionBtn) {
+            mobileSectionBtn.classList.remove('show'); // NEW: animate out
+            setTimeout(() => {
+                mobileSectionBtn.style.display = 'none'; // NEW: fully hide
+            }, 250);
+        }
 
         // NEW: On mobile, prevent touch events from propagating to canvas when panel is open
         if (isMobile) {
@@ -1529,6 +1642,16 @@
                     sectionContent.style.transform = 'translateY(0)';
                 }
                 isPanelAnimating = false;
+
+                      // NEW: if on mobile and car is still inside a section, re-show the button
+                if (isMobile && mobilePendingSection && mobileSectionBtn) {
+                    mobileSectionBtn.textContent =
+                        sections[mobilePendingSection].title.replace(/^[^A-Za-z0-9]+/, '').trim(); // NEW: label
+                    mobileSectionBtn.style.display = 'block'; // NEW: make visible
+                    void mobileSectionBtn.offsetWidth; // NEW: reflow for animation
+                    mobileSectionBtn.classList.add('show'); // NEW: animate back in
+                }    
+
             }, 500);
         }, 200);
     }
