@@ -74,6 +74,7 @@ export class MobileControls {
         this.touchCurrentY = 0;
         this.isTouching = false;
         this.touchStartTime = 0;
+        this.isReversing = false;
         
         this.touchIndicator = document.querySelector('.touch-circle');
         this.touchArrow = document.querySelector('.touch-arrow');
@@ -183,28 +184,65 @@ export class MobileControls {
             const deltaY = this.touchCurrentY - this.touchStartY;
             const swipeDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
-            // Holding = accelerate forward
-            car.accelerate();
-            moving = true;
+            // Check if car is stuck at boundary
+            const atBoundary = car.isAtBoundary();
             
-            // Swipe detection for turning
+            // Visual feedback for boundary
+            if (atBoundary && this.touchIndicator) {
+                this.touchIndicator.style.borderColor = '#ff5252'; // Red when at boundary
+            } else if (this.touchIndicator) {
+                this.touchIndicator.style.borderColor = ''; // Reset to default
+            }
+            
+            // Detect swipe down for reverse when at boundary
+            if (atBoundary && deltaY > CONFIG.MOBILE.SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX)) {
+                // Swipe down = reverse
+                car.brake(1.5); // Stronger reverse at boundary
+                this.isReversing = true;
+                moving = true;
+            } else if (this.isReversing && atBoundary) {
+                // Continue reversing if we were reversing
+                car.brake(1.5);
+                moving = true;
+            } else {
+                // Normal forward acceleration (only if not at boundary or moving away from it)
+                if (!atBoundary || car.getVelocity().length() < 0.1) {
+                    car.accelerate();
+                    moving = true;
+                }
+                this.isReversing = false;
+            }
+            
+            // Swipe detection for turning - works independently of movement
             if (swipeDistance > CONFIG.MOBILE.SWIPE_THRESHOLD) {
                 const swipeAngle = Math.atan2(deltaY, deltaX);
                 const horizontalSwipe = Math.abs(Math.cos(swipeAngle));
                 
+                // Allow turning even at boundaries
                 if (horizontalSwipe > CONFIG.MOBILE.HORIZONTAL_SWIPE_THRESHOLD) {
                     const turnIntensity = Math.min(
                         swipeDistance / 100,
                         CONFIG.MOBILE.TURN_INTENSITY_MAX
                     );
                     
+                    // Enhanced turning at boundaries
+                    const turnMultiplier = atBoundary ? 1.8 : 1.0;
+                    
                     if (deltaX > 0) {
-                        car.turnLeft(turnIntensity);
+                        car.turnLeft(turnIntensity * turnMultiplier);
                     } else {
-                        car.turnRight(turnIntensity);
+                        car.turnRight(turnIntensity * turnMultiplier);
                     }
                     turning = true;
                 }
+            }
+        } else {
+            // Reset reverse mode when not touching
+            this.isReversing = false;
+            
+            // Reset indicator color
+            if (this.touchIndicator) {
+                this.touchIndicator.style.borderColor = '';
             }
         }
 
