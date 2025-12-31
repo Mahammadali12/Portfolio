@@ -190,46 +190,23 @@ export class Car {
         const newX = this.mesh.position.x + this.velocity.x;
         const newZ = this.mesh.position.z + this.velocity.z;
         
-        // Check if trying to move outside boundaries
-        let hitBoundary = false;
-        let correctedX = newX;
-        let correctedZ = newZ;
-        
-        if (newX <= minX) {
-            correctedX = minX + 0.5; // Small buffer from wall
-            hitBoundary = true;
-        } else if (newX >= maxX) {
-            correctedX = maxX - 0.5;
-            hitBoundary = true;
-        }
-        
-        if (newZ <= minZ) {
-            correctedZ = minZ + 0.5;
-            hitBoundary = true;
-        } else if (newZ >= maxZ) {
-            correctedZ = maxZ - 0.5;
-            hitBoundary = true;
-        }
-        
-        if (hitBoundary) {
-            // Stop the car and position it slightly away from wall
-            this.mesh.position.x = correctedX;
-            this.mesh.position.z = correctedZ;
-            // Zero out velocity to prevent pushing against wall
-            this.velocity.set(0, 0, 0);
-            return false;
-        } else {
-            // Normal movement
+        if (newX > minX && newX < maxX && newZ > minZ && newZ < maxZ) {
             this.mesh.position.x = newX;
             this.mesh.position.z = newZ;
             return true;
+        } else {
+            // Bounce off boundaries
+            this.velocity.multiplyScalar(CONFIG.PHYSICS.BOUNCE_DAMPING);
+            return false;
         }
     }
-    
+
+    // NEW METHOD: Check if car is near boundaries (for enhanced mobile turning)
     isAtBoundary() {
+        if (!this.mesh) return false;
         const { minX, maxX, minZ, maxZ } = CONFIG.SCENE.BOUNDARY;
         const pos = this.mesh.position;
-        const threshold = 2; // Distance from wall to consider "at boundary"
+        const threshold = 3;
         
         return pos.x <= minX + threshold || pos.x >= maxX - threshold ||
                pos.z <= minZ + threshold || pos.z >= maxZ - threshold;

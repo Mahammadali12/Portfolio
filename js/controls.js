@@ -64,20 +64,23 @@ export class DesktopControls {
     }
 }
 
-// ==================== MOBILE CONTROLS ====================
+// ==================== MOBILE CONTROLS (VIRTUAL JOYSTICK) ====================
 export class MobileControls {
     constructor(renderer) {
         this.renderer = renderer;
-        this.touchStartX = 0;
-        this.touchStartY = 0;
-        this.touchCurrentX = 0;
-        this.touchCurrentY = 0;
-        this.isTouching = false;
-        this.touchStartTime = 0;
-        this.isReversing = false;
         
-        this.touchIndicator = document.querySelector('.touch-circle');
-        this.touchArrow = document.querySelector('.touch-arrow');
+        // Virtual joystick elements
+        this.joystickBase = null;
+        this.joystickKnob = null;
+        
+        // Joystick state
+        this.isActive = false;
+        this.centerX = 0;
+        this.centerY = 0;
+        this.currentX = 0;
+        this.currentY = 0;
+        this.vectorX = 0;  // Normalized -1 to 1
+        this.vectorY = 0;  // Normalized -1 to 1
         
         this.init();
     }
@@ -88,89 +91,111 @@ export class MobileControls {
         document.getElementById('hint-desktop').style.display = 'none';
         document.getElementById('mobile-controls').style.display = 'block';
 
-        // Prevent default touch behaviors on canvas
-        this.renderer.domElement.addEventListener('touchstart', (e) => {
+        // Initialize joystick
+        this.initVirtualJoystick();
+    }
+
+    initVirtualJoystick() {
+        // Get joystick elements
+        this.joystickBase = document.querySelector('.joystick-base');
+        this.joystickKnob = document.querySelector('.joystick-knob');
+        
+        if (!this.joystickBase || !this.joystickKnob) {
+            console.error('Joystick elements not found!');
+            return;
+        }
+
+        // Calculate center position
+        this.updateJoystickCenter();
+        window.addEventListener('resize', () => this.updateJoystickCenter());
+
+        // Touch events on the knob
+        this.joystickKnob.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            e.stopPropagation();
+            this.onJoystickStart(e);
         }, { passive: false });
 
-        this.renderer.domElement.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-        }, { passive: false });
-
-        // Touch start
-        document.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                const touch = e.touches[0];
-                const target = e.target;
-                
-                if (target.closest('#section-info') || target.closest('.close-btn')) {
-                    return;
-                }
-
-                this.touchStartX = touch.clientX;
-                this.touchStartY = touch.clientY;
-                this.touchCurrentX = touch.clientX;
-                this.touchCurrentY = touch.clientY;
-                this.isTouching = true;
-                this.touchStartTime = Date.now();
-
-                if (this.touchIndicator) {
-                    this.touchIndicator.classList.add('active');
-                }
-            }
-        }, { passive: false });
-
-        // Touch move
+        // Touch move - listen on document
         document.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1 && this.isTouching) {
-                const touch = e.touches[0];
-                this.touchCurrentX = touch.clientX;
-                this.touchCurrentY = touch.clientY;
-
-                const deltaX = this.touchCurrentX - this.touchStartX;
-                const deltaY = this.touchCurrentY - this.touchStartY;
-                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-                if (distance > CONFIG.MOBILE.SWIPE_THRESHOLD && this.touchArrow) {
-                    this.touchArrow.classList.add('show');
-                    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                        if (deltaX > 0) {
-                            this.touchArrow.classList.remove('right');
-                            this.touchArrow.classList.add('left');
-                        } else {
-                            this.touchArrow.classList.remove('left');
-                            this.touchArrow.classList.add('right');
-                        }
-                    }
-                } else if (this.touchArrow) {
-                    this.touchArrow.classList.remove('show');
-                }
+            if (this.isActive) {
+                e.preventDefault();
+                this.onJoystickMove(e);
             }
         }, { passive: false });
 
-        // Touch end
-        document.addEventListener('touchend', () => {
-            this.isTouching = false;
-            if (this.touchIndicator) {
-                this.touchIndicator.classList.remove('active');
-            }
-            if (this.touchArrow) {
-                this.touchArrow.classList.remove('show');
-                this.touchArrow.classList.remove('left');
-                this.touchArrow.classList.remove('right');
+        // Touch end - listen on document
+        document.addEventListener('touchend', (e) => {
+            if (this.isActive) {
+                this.onJoystickEnd(e);
             }
         }, { passive: false });
 
-        // Touch cancel
-        document.addEventListener('touchcancel', () => {
-            this.isTouching = false;
-            if (this.touchIndicator) {
-                this.touchIndicator.classList.remove('active');
-            }
-            if (this.touchArrow) {
-                this.touchArrow.classList.remove('show');
+        document.addEventListener('touchcancel', (e) => {
+            if (this.isActive) {
+                this.onJoystickEnd(e);
             }
         }, { passive: false });
+    }
+
+    updateJoystickCenter() {
+        const rect = this.joystickBase.getBoundingClientRect();
+        this.centerX = rect.left + rect.width / 2;
+        this.centerY = rect.top + rect.height / 2;
+    }
+
+    onJoystickStart(e) {
+        this.isActive = true;
+        this.joystickKnob.classList.add('active');
+        this.updateJoystickCenter();
+    }
+
+    onJoystickMove(e) {
+        if (!this.isActive || e.touches.length === 0) return;
+
+        const touch = e.touches[0];
+        
+        // Calculate offset from center
+        let deltaX = touch.clientX - this.centerX;
+        let deltaY = touch.clientY - this.centerY;
+        
+        // Calculate distance and angle
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const angle = Math.atan2(deltaY, deltaX);
+        
+        // Constrain to max distance
+        const maxDistance = CONFIG.MOBILE.JOYSTICK.MAX_DISTANCE;
+        const constrainedDistance = Math.min(distance, maxDistance);
+        
+        // Calculate constrained position
+        this.currentX = Math.cos(angle) * constrainedDistance;
+        this.currentY = Math.sin(angle) * constrainedDistance;
+        
+        // Update visual position
+        this.joystickKnob.style.transform = 
+            `translate(calc(-50% + ${this.currentX}px), calc(-50% + ${this.currentY}px))`;
+        
+        // Calculate normalized vector with dead zone
+        const deadZone = CONFIG.MOBILE.JOYSTICK.DEAD_ZONE * maxDistance;
+        if (distance > deadZone) {
+            this.vectorX = this.currentX / maxDistance;
+            this.vectorY = this.currentY / maxDistance;
+        } else {
+            this.vectorX = 0;
+            this.vectorY = 0;
+        }
+    }
+
+    onJoystickEnd(e) {
+        this.isActive = false;
+        this.joystickKnob.classList.remove('active');
+        
+        // Reset to center with animation
+        this.joystickKnob.style.transform = 'translate(-50%, -50%)';
+        this.currentX = 0;
+        this.currentY = 0;
+        this.vectorX = 0;
+        this.vectorY = 0;
     }
 
     update(car) {
@@ -179,83 +204,64 @@ export class MobileControls {
         let moving = false;
         let turning = false;
 
-        if (this.isTouching) {
-            const deltaX = this.touchCurrentX - this.touchStartX;
-            const deltaY = this.touchCurrentY - this.touchStartY;
-            const swipeDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            
-            // Check if car is stuck at boundary
+        if (this.isActive && (Math.abs(this.vectorX) > 0 || Math.abs(this.vectorY) > 0)) {
             const atBoundary = car.isAtBoundary();
             
-            // Visual feedback for boundary
-            if (atBoundary && this.touchIndicator) {
-                this.touchIndicator.style.borderColor = '#ff5252'; // Red when at boundary
-            } else if (this.touchIndicator) {
-                this.touchIndicator.style.borderColor = ''; // Reset to default
+            // Y-axis controls forward/backward (negative Y is up)
+            const forwardInput = -this.vectorY;
+            
+            // Determine if we should move forward
+            let shouldMoveForward = false;
+            let forwardIntensity = 0;
+            
+            if (forwardInput > 0.1) {
+                // Explicit forward push
+                shouldMoveForward = true;
+                forwardIntensity = forwardInput;
+            } else if (forwardInput < -0.1) {
+                // Explicit reverse
+                const reverseIntensity = Math.abs(forwardInput);
+                car.brake(reverseIntensity * 1.5);
+                moving = true;
+            } else if (Math.abs(this.vectorX) > 0.2) {
+                // RACING GAME BEHAVIOR: Auto-forward when steering
+                // If joystick is pushed left/right without up/down,
+                // automatically move forward to maintain momentum
+                shouldMoveForward = true;
+                forwardIntensity = Math.abs(this.vectorX); // Use turn intensity as speed
             }
             
-            // Detect swipe down for reverse when at boundary
-            if (atBoundary && deltaY > CONFIG.MOBILE.SWIPE_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX)) {
-                // Swipe down = reverse
-                car.brake(1.5); // Stronger reverse at boundary
-                this.isReversing = true;
-                moving = true;
-            } else if (this.isReversing && atBoundary) {
-                // Continue reversing if we were reversing
-                car.brake(1.5);
-                moving = true;
-            } else {
-                // Normal forward acceleration (only if not at boundary or moving away from it)
+            // Apply forward movement
+            if (shouldMoveForward) {
                 if (!atBoundary || car.getVelocity().length() < 0.1) {
-                    car.accelerate();
+                    car.accelerate(forwardIntensity);
                     moving = true;
                 }
-                this.isReversing = false;
             }
             
-            // Swipe detection for turning - works independently of movement
-            if (swipeDistance > CONFIG.MOBILE.SWIPE_THRESHOLD) {
-                const swipeAngle = Math.atan2(deltaY, deltaX);
-                const horizontalSwipe = Math.abs(Math.cos(swipeAngle));
+            // X-axis controls turning
+            const turnInput = this.vectorX;
+            
+            if (Math.abs(turnInput) > 0.1) {
+                const turnMultiplier = atBoundary ? 1.8 : 1.0;
+                const turnIntensity = Math.abs(turnInput) * turnMultiplier;
                 
-                // Allow turning even at boundaries
-                if (horizontalSwipe > CONFIG.MOBILE.HORIZONTAL_SWIPE_THRESHOLD) {
-                    const turnIntensity = Math.min(
-                        swipeDistance / 100,
-                        CONFIG.MOBILE.TURN_INTENSITY_MAX
-                    );
-                    
-                    // Enhanced turning at boundaries
-                    const turnMultiplier = atBoundary ? 1.8 : 1.0;
-                    
-                    if (deltaX > 0) {
-                        car.turnLeft(turnIntensity * turnMultiplier);
-                    } else {
-                        car.turnRight(turnIntensity * turnMultiplier);
-                    }
-                    turning = true;
+                if (turnInput > 0) {
+                    car.turnRight(turnIntensity);
+                } else {
+                    car.turnLeft(turnIntensity);
                 }
-            }
-        } else {
-            // Reset reverse mode when not touching
-            this.isReversing = false;
-            
-            // Reset indicator color
-            if (this.touchIndicator) {
-                this.touchIndicator.style.borderColor = '';
+                turning = true;
             }
         }
 
-        // Mobile drift detection
+        // Drift detection
         const speed = car.getVelocity().length();
-        const deltaX = this.touchCurrentX - this.touchStartX;
-        const drifting = this.isTouching && 
-                        speed > 0.5 && 
-                        Math.abs(deltaX) > CONFIG.MOBILE.SWIPE_THRESHOLD * CONFIG.MOBILE.DRIFT_SWIPE_MULTIPLIER;
-        
+        const drifting = this.isActive && speed > 0.5 && Math.abs(this.vectorX) > 0.6;
         car.updateDrift(drifting);
         
-        const turnDirection = deltaX > 0 ? -1 : (deltaX < 0 ? 1 : 0);
+        // Tilt direction
+        const turnDirection = this.vectorX > 0 ? -1 : (this.vectorX < 0 ? 1 : 0);
         car.updateTilt(turnDirection);
 
         return { moving, turning };
