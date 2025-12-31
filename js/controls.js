@@ -210,17 +210,33 @@ export class MobileControls {
             // Y-axis controls forward/backward (negative Y is up)
             const forwardInput = -this.vectorY;
             
+            // Determine if we should move forward
+            let shouldMoveForward = false;
+            let forwardIntensity = 0;
+            
             if (forwardInput > 0.1) {
-                // Forward movement
-                if (!atBoundary || car.getVelocity().length() < 0.1) {
-                    car.accelerate(forwardInput);
-                    moving = true;
-                }
+                // Explicit forward push
+                shouldMoveForward = true;
+                forwardIntensity = forwardInput;
             } else if (forwardInput < -0.1) {
-                // Backward movement (reverse)
+                // Explicit reverse
                 const reverseIntensity = Math.abs(forwardInput);
                 car.brake(reverseIntensity * 1.5);
                 moving = true;
+            } else if (Math.abs(this.vectorX) > 0.2) {
+                // RACING GAME BEHAVIOR: Auto-forward when steering
+                // If joystick is pushed left/right without up/down,
+                // automatically move forward to maintain momentum
+                shouldMoveForward = true;
+                forwardIntensity = Math.abs(this.vectorX); // Use turn intensity as speed
+            }
+            
+            // Apply forward movement
+            if (shouldMoveForward) {
+                if (!atBoundary || car.getVelocity().length() < 0.1) {
+                    car.accelerate(forwardIntensity);
+                    moving = true;
+                }
             }
             
             // X-axis controls turning
