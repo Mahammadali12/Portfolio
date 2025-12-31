@@ -109,7 +109,7 @@ export const CONFIG = {
         DUST_GRAVITY: 0.002,
         DRIFT_TRAIL_OPACITY: 0.6,
         DRIFT_TRAIL_DECAY: 0.03,
-        BACKGROUND_PARTICLE_COUNT: 3
+        BACKGROUND_PARTICLE_COUNT: 30
     },
 
     // Car
@@ -127,7 +127,13 @@ export const CONFIG = {
         HOLD_THRESHOLD: 100,
         TURN_INTENSITY_MAX: 1.5,
         HORIZONTAL_SWIPE_THRESHOLD: 0.7,
-        DRIFT_SWIPE_MULTIPLIER: 1.5
+        DRIFT_SWIPE_MULTIPLIER: 1.5,
+        JOYSTICK: {
+            BASE_RADIUS: 60,
+            KNOB_RADIUS: 30,
+            MAX_DISTANCE: 40,
+            DEAD_ZONE: 0.15
+        }
     },
 
     // UI
