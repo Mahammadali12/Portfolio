@@ -407,6 +407,8 @@ canvas {
     border: 1px solid rgba(255, 237, 191, 0.2);
     box-shadow: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    /* Scale down visually while keeping hit area */
+    transform: scale(0.7);
 }
 
 .control-ring.active {
@@ -450,10 +452,6 @@ canvas {
     /* Width and height set dynamically via JS, but defaults here */
     width: 55px;
     height: 55px;
-    /* background: radial-gradient(circle at 30% 30%, 
-        #ffcd74 0%, 
-        #ff7251 50%,
-        #9b2948 100%); */
     background: transparent;
     border: 0 solid #ffedbf;
     opacity: 70%;
@@ -461,10 +459,8 @@ canvas {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
-    /* box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
-                inset 0 2px 4px rgba(255, 255, 255, 0.4),
-                inset 0 -2px 4px rgba(0, 0, 0, 0.2); */
+    /* Scale down thumb visually - adjust transform-origin to maintain circular path */
+    transform: translate(-50%, -50%) scale(0.7);
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
     cursor: grab;
     z-index: 10;
@@ -487,7 +483,6 @@ canvas {
 .control-thumb.active {
     cursor: grabbing;
     border-color: #ffffff;
-    
     box-shadow: 0 2px 15px rgba(0, 0, 0, 0.6),
                 inset 0 2px 4px rgba(255, 255, 255, 0.5),
                 0 0 40px rgba(255, 205, 116, 0.7),
