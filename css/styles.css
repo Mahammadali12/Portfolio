@@ -403,23 +403,15 @@ canvas {
     height: 100%;
     border-radius: 50%;
     position: relative;
-    background: radial-gradient(circle at center, 
-        rgba(155, 41, 72, 0.15) 0%, 
-        rgba(155, 41, 72, 0.08) 30%, 
-        rgba(255, 237, 191, 0.03) 30%, 
-        rgba(255, 237, 191, 0.1) 100%);
-    border: 3px solid rgba(255, 237, 191, 0.4);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3),
-                inset 0 0 50px rgba(255, 237, 191, 0.05);
-    backdrop-filter: blur(8px);
+    background: transparent;
+    border: 1px solid rgba(255, 237, 191, 0.2);
+    box-shadow: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .control-ring.active {
-    border-color: rgba(255, 205, 116, 0.7);
-    box-shadow: 0 4px 40px rgba(255, 205, 116, 0.4),
-                inset 0 0 60px rgba(255, 205, 116, 0.1),
-                0 0 80px rgba(255, 205, 116, 0.2);
+    border-color: rgba(255, 205, 116, 0.4);
+    box-shadow: none;
 }
 
 /* Track path indicator - the circular track the thumb follows */
@@ -432,26 +424,25 @@ canvas {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    border: 2px dashed rgba(255, 237, 191, 0.25);
+    border: 1px dashed rgba(255, 237, 191, 0.15);
     pointer-events: none;
 }
 
 .control-ring.active::after {
-    border-color: rgba(255, 205, 116, 0.4);
+    border-color: rgba(255, 205, 116, 0.25);
 }
 
 .control-ring-inner {
     position: absolute;
+    display: none;
     /* Width and height set dynamically via JS */
     border-radius: 50%;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: radial-gradient(circle at center,
-        rgba(155, 41, 72, 0.25) 0%,
-        rgba(155, 41, 72, 0.1) 100%);
-    border: 2px solid rgba(255, 237, 191, 0.2);
-    box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.2);
+    background: transparent;
+    border: 1px solid rgba(255, 237, 191, 0.15);
+    box-shadow: none;
     pointer-events: none;
 }
 
@@ -459,19 +450,21 @@ canvas {
     /* Width and height set dynamically via JS, but defaults here */
     width: 55px;
     height: 55px;
-    background: radial-gradient(circle at 30% 30%, 
+    /* background: radial-gradient(circle at 30% 30%, 
         #ffcd74 0%, 
         #ff7251 50%,
-        #9b2948 100%);
-    border: 4px solid #ffedbf;
+        #9b2948 100%); */
+    background: transparent;
+    border: 0 solid #ffedbf;
+    opacity: 70%;
     border-radius: 50%;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
+    /* box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
                 inset 0 2px 4px rgba(255, 255, 255, 0.4),
-                inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+                inset 0 -2px 4px rgba(0, 0, 0, 0.2); */
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
     cursor: grab;
     z-index: 10;
@@ -494,6 +487,7 @@ canvas {
 .control-thumb.active {
     cursor: grabbing;
     border-color: #ffffff;
+    
     box-shadow: 0 2px 15px rgba(0, 0, 0, 0.6),
                 inset 0 2px 4px rgba(255, 255, 255, 0.5),
                 0 0 40px rgba(255, 205, 116, 0.7),
