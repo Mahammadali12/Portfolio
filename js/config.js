@@ -121,18 +121,20 @@ export const CONFIG = {
         FALLBACK_SIZE: { body: [2.5, 1, 4.5], wheel: [0.4, 0.4, 0.3] }
     },
 
-    // Mobile
+    // Mobile - Updated for Smash Bandits style circular control
     MOBILE: {
         SWIPE_THRESHOLD: 30,
         HOLD_THRESHOLD: 100,
         TURN_INTENSITY_MAX: 1.5,
         HORIZONTAL_SWIPE_THRESHOLD: 0.7,
         DRIFT_SWIPE_MULTIPLIER: 1.5,
-        JOYSTICK: {
-            BASE_RADIUS: 60,
-            KNOB_RADIUS: 30,
-            MAX_DISTANCE: 40,
-            DEAD_ZONE: 0.15
+        CIRCULAR_CONTROL: {
+            THUMB_SIZE: 55,            // Diameter of the joystick thumb (constant)
+            SAFETY_PADDING: 10,        // Pixels from screen edge
+            DEAD_ZONE: 0.1,            // Dead zone threshold
+            STEERING_LERP: 0.15,       // How fast car follows joystick (0-1)
+            RETURN_LERP: 0.1,          // How fast joystick returns to center
+            RETURN_TO_CENTER: false    // Whether joystick returns when released
         }
     },
 
