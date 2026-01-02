@@ -10,7 +10,7 @@
     <!-- Hint Text -->
     <div id="hint">
         <span id="hint-desktop">⚡ Use WASD to drive into colored sections</span>
-        <span id="hint-mobile" style="display: none;">🕹️ Use joystick to drive | Up=Forward | Down=Reverse</span>
+        <span id="hint-mobile" style="display: none;">🎮 Drag the circle to steer & accelerate</span>
     </div>
 
     <!-- Mobile Section Button -->
@@ -18,11 +18,13 @@
         Open section
     </button>
 
-    <!-- Mobile Touch Controls -->
+    <!-- Mobile Circular Controls -->
     <div id="mobile-controls" style="display: none;">
-        <div id="virtual-joystick">
-            <div class="joystick-base">
-                <div class="joystick-knob"></div>
+        <div id="circular-control-container">
+            <div class="control-ring">
+                <div class="control-ring-inner"></div>
+                <div class="direction-indicator"></div>
+                <div class="control-thumb"></div>
             </div>
         </div>
     </div>

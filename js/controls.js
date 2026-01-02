@@ -64,23 +64,47 @@ export class DesktopControls {
     }
 }
 
-// ==================== MOBILE CONTROLS (VIRTUAL JOYSTICK) ====================
+// ==================== MOBILE CONTROLS (SMASH BANDITS STYLE) ====================
 export class MobileControls {
     constructor(renderer) {
         this.renderer = renderer;
         
-        // Virtual joystick elements
-        this.joystickBase = null;
-        this.joystickKnob = null;
+        // Circular control elements
+        this.controlContainer = null;
+        this.controlRing = null;
+        this.controlThumb = null;
+        this.controlRingInner = null;
+        this.directionIndicator = null;
         
-        // Joystick state
+        // Control state
         this.isActive = false;
+        this.activeTouch = null;
         this.centerX = 0;
         this.centerY = 0;
-        this.currentX = 0;
-        this.currentY = 0;
-        this.vectorX = 0;  // Normalized -1 to 1
-        this.vectorY = 0;  // Normalized -1 to 1
+        
+        // Dynamic sizing - will be calculated on init
+        this.outerDiameter = 0;
+        this.innerDiameter = 0;
+        this.thumbSize = CONFIG.MOBILE.CIRCULAR_CONTROL.THUMB_SIZE || 55;
+        this.safetyPadding = CONFIG.MOBILE.CIRCULAR_CONTROL.SAFETY_PADDING || 10;
+        
+        // Path constraints (will be calculated dynamically)
+        this.radiusX = 0;
+        this.radiusY = 0;
+        
+        // Angle tracking
+        this.currentAngle = -Math.PI / 2; // Start pointing up
+        this.targetAngle = -Math.PI / 2;
+        this.carTargetRotation = Math.PI; // Match car's initial rotation
+        
+        // Smooth steering
+        this.steeringLerpSpeed = CONFIG.MOBILE.CIRCULAR_CONTROL.STEERING_LERP || 0.12;
+        this.returnLerpSpeed = CONFIG.MOBILE.CIRCULAR_CONTROL.RETURN_LERP || 0.08;
+        this.returnToCenter = CONFIG.MOBILE.CIRCULAR_CONTROL.RETURN_TO_CENTER !== false;
+        
+        // Previous angle for turn direction detection
+        this.previousAngle = this.currentAngle;
+        this.angularVelocity = 0;
         
         this.init();
     }
@@ -89,113 +113,223 @@ export class MobileControls {
         // Show mobile UI
         document.getElementById('hint-mobile').style.display = 'inline';
         document.getElementById('hint-desktop').style.display = 'none';
-        document.getElementById('mobile-controls').style.display = 'block';
+        document.getElementById('mobile-controls').style.display = 'flex';
 
-        // Initialize joystick
-        this.initVirtualJoystick();
+        // Calculate dynamic sizes based on screen width
+        this.calculateSizes();
+        
+        // Initialize circular control
+        this.initCircularControl();
     }
 
-    initVirtualJoystick() {
-        // Get joystick elements
-        this.joystickBase = document.querySelector('.joystick-base');
-        this.joystickKnob = document.querySelector('.joystick-knob');
+    calculateSizes() {
+        const screenWidth = window.innerWidth;
         
-        if (!this.joystickBase || !this.joystickKnob) {
-            console.error('Joystick elements not found!');
+        // Outer diameter = screen width - safety padding on both sides
+        this.outerDiameter = screenWidth - (this.safetyPadding * 2);
+        
+        // Inner diameter = outer diameter - 2 * (thumb size + small padding)
+        const thumbPadding = 5; // Extra padding to prevent thumb overlapping edges
+        this.innerDiameter = this.outerDiameter - 2 * (this.thumbSize + thumbPadding);
+        
+        // Calculate the path radius (where the thumb center travels)
+        // Thumb travels on a circle between inner and outer rings
+        // Path radius = (outer radius + inner radius) / 2, but we want thumb to stay on outer track
+        // So path radius = outer radius - thumb radius - small padding
+        this.radiusX = (this.outerDiameter / 2) - (this.thumbSize / 2) - thumbPadding;
+        this.radiusY = this.radiusX; // Keep it circular, or make elliptical if needed
+    }
+
+    initCircularControl() {
+        // Get control elements
+        this.controlContainer = document.getElementById('circular-control-container');
+        this.controlRing = document.querySelector('.control-ring');
+        this.controlRingInner = document.querySelector('.control-ring-inner');
+        this.controlThumb = document.querySelector('.control-thumb');
+        this.directionIndicator = document.querySelector('.direction-indicator');
+        
+        if (!this.controlContainer || !this.controlRing || !this.controlThumb) {
+            console.error('Circular control elements not found!');
             return;
         }
 
-        // Calculate center position
-        this.updateJoystickCenter();
-        window.addEventListener('resize', () => this.updateJoystickCenter());
+        // Apply dynamic sizes to elements
+        this.applyDynamicSizes();
 
-        // Touch events on the knob
-        this.joystickKnob.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.onJoystickStart(e);
+        // Calculate center position
+        this.updateControlCenter();
+        
+        window.addEventListener('resize', () => {
+            this.calculateSizes();
+            this.applyDynamicSizes();
+            this.updateControlCenter();
+            this.updateThumbPosition(this.currentAngle);
+        });
+        
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                this.calculateSizes();
+                this.applyDynamicSizes();
+                this.updateControlCenter();
+                this.updateThumbPosition(this.currentAngle);
+            }, 100);
+        });
+
+        // Initialize thumb position (pointing up)
+        this.updateThumbPosition(this.currentAngle);
+
+        // Touch events on the control area
+        this.controlContainer.addEventListener('touchstart', (e) => {
+            this.onControlStart(e);
         }, { passive: false });
 
-        // Touch move - listen on document
+        // Touch move - listen on document for smooth dragging outside bounds
         document.addEventListener('touchmove', (e) => {
-            if (this.isActive) {
-                e.preventDefault();
-                this.onJoystickMove(e);
+            if (this.isActive && this.activeTouch !== null) {
+                this.onControlMove(e);
             }
         }, { passive: false });
 
         // Touch end - listen on document
-        document.addEventListener('touchend', (e) => {
-            if (this.isActive) {
-                this.onJoystickEnd(e);
-            }
-        }, { passive: false });
-
-        document.addEventListener('touchcancel', (e) => {
-            if (this.isActive) {
-                this.onJoystickEnd(e);
-            }
-        }, { passive: false });
+        document.addEventListener('touchend', (e) => this.onControlEnd(e), { passive: false });
+        document.addEventListener('touchcancel', (e) => this.onControlEnd(e), { passive: false });
     }
 
-    updateJoystickCenter() {
-        const rect = this.joystickBase.getBoundingClientRect();
+    applyDynamicSizes() {
+        // Apply sizes to container
+        this.controlContainer.style.width = `${this.outerDiameter}px`;
+        this.controlContainer.style.height = `${this.outerDiameter}px`;
+        
+        // Apply sizes to outer ring
+        this.controlRing.style.width = `${this.outerDiameter}px`;
+        this.controlRing.style.height = `${this.outerDiameter}px`;
+        
+        // Apply sizes to inner ring
+        if (this.controlRingInner) {
+            this.controlRingInner.style.width = `${this.innerDiameter}px`;
+            this.controlRingInner.style.height = `${this.innerDiameter}px`;
+        }
+        
+        // Thumb size stays constant
+        this.controlThumb.style.width = `${this.thumbSize}px`;
+        this.controlThumb.style.height = `${this.thumbSize}px`;
+        
+        // Update the track indicator (dashed circle showing thumb path)
+        const trackDiameter = this.radiusX * 2;
+        this.controlRing.style.setProperty('--track-diameter', `${trackDiameter}px`);
+    }
+
+    updateControlCenter() {
+        const rect = this.controlContainer.getBoundingClientRect();
         this.centerX = rect.left + rect.width / 2;
         this.centerY = rect.top + rect.height / 2;
     }
 
-    onJoystickStart(e) {
+    onControlStart(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+        
         this.isActive = true;
-        this.joystickKnob.classList.add('active');
-        this.updateJoystickCenter();
+        this.activeTouch = touch.identifier;
+        this.controlThumb.classList.add('active');
+        this.controlRing.classList.add('active');
+        this.updateControlCenter();
+        
+        // Calculate initial angle from touch position
+        this.updateAngleFromTouch(touch.clientX, touch.clientY);
+        this.updateThumbPosition(this.currentAngle);
     }
 
-    onJoystickMove(e) {
-        if (!this.isActive || e.touches.length === 0) return;
-
-        const touch = e.touches[0];
+    onControlMove(e) {
+        if (!this.isActive) return;
         
-        // Calculate offset from center
-        let deltaX = touch.clientX - this.centerX;
-        let deltaY = touch.clientY - this.centerY;
+        let touch = null;
+        for (let t of e.touches) {
+            if (t.identifier === this.activeTouch) {
+                touch = t;
+                break;
+            }
+        }
         
-        // Calculate distance and angle
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        const angle = Math.atan2(deltaY, deltaX);
+        if (!touch) return;
         
-        // Constrain to max distance
-        const maxDistance = CONFIG.MOBILE.JOYSTICK.MAX_DISTANCE;
-        const constrainedDistance = Math.min(distance, maxDistance);
+        e.preventDefault();
         
-        // Calculate constrained position
-        this.currentX = Math.cos(angle) * constrainedDistance;
-        this.currentY = Math.sin(angle) * constrainedDistance;
+        // Store previous angle for velocity calculation
+        this.previousAngle = this.currentAngle;
+        
+        // Update angle from touch
+        this.updateAngleFromTouch(touch.clientX, touch.clientY);
+        
+        // Calculate angular velocity for drift detection
+        this.angularVelocity = this.normalizeAngle(this.currentAngle - this.previousAngle);
         
         // Update visual position
-        this.joystickKnob.style.transform = 
-            `translate(calc(-50% + ${this.currentX}px), calc(-50% + ${this.currentY}px))`;
+        this.updateThumbPosition(this.currentAngle);
+    }
+
+    updateAngleFromTouch(touchX, touchY) {
+        const deltaX = touchX - this.centerX;
+        const deltaY = touchY - this.centerY;
         
-        // Calculate normalized vector with dead zone
-        const deadZone = CONFIG.MOBILE.JOYSTICK.DEAD_ZONE * maxDistance;
-        if (distance > deadZone) {
-            this.vectorX = this.currentX / maxDistance;
-            this.vectorY = this.currentY / maxDistance;
-        } else {
-            this.vectorX = 0;
-            this.vectorY = 0;
+        // Calculate angle (atan2 gives us the angle from center to touch)
+        let angle = Math.atan2(deltaY, deltaX);
+        
+        this.currentAngle = angle;
+        this.targetAngle = angle;
+    }
+
+    updateThumbPosition(angle) {
+        // Calculate position on circular/elliptical path
+        const thumbX = Math.cos(angle) * this.radiusX;
+        const thumbY = Math.sin(angle) * this.radiusY;
+        
+        // Update thumb visual position (relative to center)
+        this.controlThumb.style.transform = 
+            `translate(calc(-50% + ${thumbX}px), calc(-50% + ${thumbY}px))`;
+        
+        // Update direction indicator rotation if it exists
+        if (this.directionIndicator) {
+            const indicatorAngle = angle + Math.PI / 2;
+            this.directionIndicator.style.transform = `rotate(${indicatorAngle}rad)`;
         }
     }
 
-    onJoystickEnd(e) {
-        this.isActive = false;
-        this.joystickKnob.classList.remove('active');
+    onControlEnd(e) {
+        let touchEnded = false;
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === this.activeTouch) {
+                touchEnded = true;
+                break;
+            }
+        }
         
-        // Reset to center with animation
-        this.joystickKnob.style.transform = 'translate(-50%, -50%)';
-        this.currentX = 0;
-        this.currentY = 0;
-        this.vectorX = 0;
-        this.vectorY = 0;
+        if (!touchEnded) return;
+        
+        this.isActive = false;
+        this.activeTouch = null;
+        this.angularVelocity = 0;
+        this.controlThumb.classList.remove('active');
+        this.controlRing.classList.remove('active');
+        
+        // Optionally return thumb to center (up position)
+        if (this.returnToCenter) {
+            this.targetAngle = -Math.PI / 2;
+        }
+    }
+
+    normalizeAngle(angle) {
+        while (angle > Math.PI) angle -= Math.PI * 2;
+        while (angle < -Math.PI) angle += Math.PI * 2;
+        return angle;
+    }
+
+    lerpAngle(from, to, t) {
+        let diff = this.normalizeAngle(to - from);
+        return from + diff * t;
     }
 
     update(car) {
@@ -204,65 +338,47 @@ export class MobileControls {
         let moving = false;
         let turning = false;
 
-        if (this.isActive && (Math.abs(this.vectorX) > 0 || Math.abs(this.vectorY) > 0)) {
-            const atBoundary = car.isAtBoundary();
+        // MODIFICATION 1: Accelerate when joystick is held (isActive)
+        if (this.isActive) {
+            car.accelerate(1.0);
+            moving = true;
             
-            // Y-axis controls forward/backward (negative Y is up)
-            const forwardInput = -this.vectorY;
+            // FIX: Reverse control - negate the angle to make clockwise joystick = clockwise car turn
+            const targetCarRotation = -(this.currentAngle + Math.PI / 2);
             
-            // Determine if we should move forward
-            let shouldMoveForward = false;
-            let forwardIntensity = 0;
+            // Smoothly interpolate car rotation
+            this.carTargetRotation = this.lerpAngle(
+                this.carTargetRotation, 
+                targetCarRotation, 
+                this.steeringLerpSpeed
+            );
             
-            if (forwardInput > 0.1) {
-                // Explicit forward push
-                shouldMoveForward = true;
-                forwardIntensity = forwardInput;
-            } else if (forwardInput < -0.1) {
-                // Explicit reverse
-                const reverseIntensity = Math.abs(forwardInput);
-                car.brake(reverseIntensity * 1.5);
-                moving = true;
-            } else if (Math.abs(this.vectorX) > 0.2) {
-                // RACING GAME BEHAVIOR: Auto-forward when steering
-                // If joystick is pushed left/right without up/down,
-                // automatically move forward to maintain momentum
-                shouldMoveForward = true;
-                forwardIntensity = Math.abs(this.vectorX); // Use turn intensity as speed
+            car.mesh.rotation.y = this.carTargetRotation;
+            turning = true;
+            
+            // Calculate turn direction for visual tilt
+            const turnDirection = Math.sign(this.angularVelocity);
+            const turnIntensity = Math.min(Math.abs(this.angularVelocity) * 10, 1);
+            car.updateTilt(turnDirection * turnIntensity);
+            
+        } else {
+            // When not actively steering, optionally return joystick to center
+            if (this.returnToCenter) {
+                this.currentAngle = this.lerpAngle(
+                    this.currentAngle, 
+                    this.targetAngle, 
+                    this.returnLerpSpeed
+                );
+                this.updateThumbPosition(this.currentAngle);
             }
             
-            // Apply forward movement
-            if (shouldMoveForward) {
-                if (!atBoundary || car.getVelocity().length() < 0.1) {
-                    car.accelerate(forwardIntensity);
-                    moving = true;
-                }
-            }
-            
-            // X-axis controls turning
-            const turnInput = this.vectorX;
-            
-            if (Math.abs(turnInput) > 0.1) {
-                const turnMultiplier = atBoundary ? 1.8 : 1.0;
-                const turnIntensity = Math.abs(turnInput) * turnMultiplier;
-                
-                if (turnInput > 0) {
-                    car.turnRight(turnIntensity);
-                } else {
-                    car.turnLeft(turnIntensity);
-                }
-                turning = true;
-            }
+            car.updateTilt(0);
         }
 
-        // Drift detection
+        // Update drift state based on speed and turning intensity
         const speed = car.getVelocity().length();
-        const drifting = this.isActive && speed > 0.5 && Math.abs(this.vectorX) > 0.6;
+        const drifting = speed > 0.5 && turning && Math.abs(this.angularVelocity) > 0.02;
         car.updateDrift(drifting);
-        
-        // Tilt direction
-        const turnDirection = this.vectorX > 0 ? -1 : (this.vectorX < 0 ? 1 : 0);
-        car.updateTilt(turnDirection);
 
         return { moving, turning };
     }

@@ -199,26 +199,32 @@ canvas {
 
 .close-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    background: #ff7251;
+    top: 15px;
+    right: 15px;
+    background: rgba(155, 41, 72, 0.9);
+    border: 2px solid #ffedbf;
     color: #ffedbf;
-    border: none;
-    width: 30px;
-    height: 30px;
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 101;
-    transition: background 0.2s ease, transform 0.2s ease;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .close-btn:hover {
-    background: #ff5251;
+    background: #ff7251;
     transform: scale(1.1);
+    box-shadow: 0 4px 20px rgba(255, 114, 81, 0.5);
+}
+
+.close-btn:active {
+    transform: scale(0.95);
 }
 
 /* ==================== SECTION CONTENT STYLES ==================== */
@@ -317,164 +323,196 @@ canvas {
     border: 3px solid #ffcd74;
 }
 
-/* ==================== MOBILE CONTROLS ==================== */
-#mobile-controls {
-    position: fixed;
-    bottom: 40px;
-    left: 40px;
-    z-index: 100;
-    pointer-events: none;
-}
-
-#virtual-joystick {
-    pointer-events: auto;
-}
-
-.joystick-base {
-    width: 120px;
-    height: 120px;
-    background: radial-gradient(circle, rgba(255, 237, 191, 0.15) 0%, rgba(155, 41, 72, 0.25) 100%);
-    border: 3px solid rgba(255, 237, 191, 0.4);
-    border-radius: 50%;
-    position: relative;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
-                inset 0 2px 10px rgba(255, 237, 191, 0.1);
-    backdrop-filter: blur(10px);
-}
-
-.joystick-knob {
-    width: 60px;
-    height: 60px;
-    background: radial-gradient(circle at 30% 30%, #ffcd74 0%, #ff7251 100%);
-    border: 3px solid #ffedbf;
-    border-radius: 50%;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
-                inset 0 2px 4px rgba(255, 255, 255, 0.3);
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
-    cursor: grab;
-}
-
-.joystick-knob.active {
-    cursor: grabbing;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5),
-                inset 0 2px 4px rgba(255, 255, 255, 0.4),
-                0 0 20px rgba(255, 205, 116, 0.5);
-    transform: translate(-50%, -50%) scale(1.05);
-}
-
-/* Direction indicators on joystick base */
-.joystick-base::before,
-.joystick-base::after {
-    content: '';
-    position: absolute;
-    background: rgba(255, 237, 191, 0.2);
-    border-radius: 2px;
-}
-
-.joystick-base::before {
-    width: 2px;
-    height: 60%;
-    top: 20%;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.joystick-base::after {
-    width: 60%;
-    height: 2px;
-    top: 50%;
-    left: 20%;
-    transform: translateY(-50%);
-}
-
-#touch-indicator {
-    width: 80px;
-    height: 80px;
-    position: relative;
-}
-
-.touch-circle {
-    width: 60px;
-    height: 60px;
-    border: 3px solid rgba(255, 237, 191, 0.6);
-    border-radius: 50%;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    transition: all 0.2s ease;
-}
-
-.touch-circle.active {
-    border-color: #ffcd74;
-    box-shadow: 0 0 20px rgba(255, 205, 116, 0.6);
-    transform: translate(-50%, -50%) scale(1.2);
-}
-
-.touch-arrow {
-    width: 0;
-    height: 0;
-    border-left: 15px solid transparent;
-    border-right: 15px solid transparent;
-    border-bottom: 25px solid rgba(255, 205, 116, 0.7);
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    transition: all 0.2s ease;
-}
-
-.touch-arrow.show {
-    opacity: 1;
-}
-
-.touch-arrow.left {
-    transform: translateX(-50%) rotate(-90deg);
-}
-
-.touch-arrow.right {
-    transform: translateX(-50%) rotate(90deg);
-}
-
+/* ==================== MOBILE SECTION BUTTON ==================== */
 #mobile-section-btn {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 10px 18px;
-    border-radius: 999px;
-    border: none;
-    background: #ff7251;
+    bottom: 140px;
+    right: 50%;
+    transform: translateX(50%) translateY(50px);
+    z-index: 150;
+    padding: 15px 30px;
+    background: linear-gradient(135deg, #ff7251 0%, #9b2948 100%);
+    border: 3px solid #ffedbf;
+    border-radius: 25px;
     color: #ffedbf;
-    font-weight: 600;
-    font-size: 14px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    z-index: 10000;
-    display: none;
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(155, 41, 72, 0.5),
+                inset 0 2px 4px rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
     opacity: 0;
-    transform: translateY(10px) scale(0.9);
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
 #mobile-section-btn.show {
-    display: block;
+    transform: translateX(50%) translateY(0);
+    pointer-events: auto;
     opacity: 1;
-    transform: translateY(0) scale(1);
 }
 
-/* ==================== ANIMATIONS ==================== */
-.highlighted-section {
-    animation: pulse 2s infinite;
+#mobile-section-btn:active {
+    transform: translateX(50%) translateY(0) scale(0.95);
+    box-shadow: 0 2px 10px rgba(155, 41, 72, 0.3),
+                inset 0 1px 2px rgba(255, 255, 255, 0.2);
 }
 
-@keyframes pulse {
-    0% { opacity: 0.8; }
-    50% { opacity: 1; }
-    100% { opacity: 0.8; }
+#mobile-section-btn::before {
+    content: '👆';
+    margin-right: 8px;
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+/* ==================== MOBILE CIRCULAR CONTROLS (SMASH BANDITS STYLE) ==================== */
+#mobile-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    pointer-events: none;
+    display: none;
+    justify-content: center;
+    align-items: flex-end;
+    padding-bottom: 20px;
+}
+
+#circular-control-container {
+    /* Width and height set dynamically via JS */
+    position: relative;
+    pointer-events: auto;
+    touch-action: none;
+}
+
+.control-ring {
+    /* Width and height set dynamically via JS */
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    position: relative;
+    background: radial-gradient(circle at center, 
+        rgba(155, 41, 72, 0.15) 0%, 
+        rgba(155, 41, 72, 0.08) 30%, 
+        rgba(255, 237, 191, 0.03) 30%, 
+        rgba(255, 237, 191, 0.1) 100%);
+    border: 3px solid rgba(255, 237, 191, 0.4);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3),
+                inset 0 0 50px rgba(255, 237, 191, 0.05);
+    backdrop-filter: blur(8px);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.control-ring.active {
+    border-color: rgba(255, 205, 116, 0.7);
+    box-shadow: 0 4px 40px rgba(255, 205, 116, 0.4),
+                inset 0 0 60px rgba(255, 205, 116, 0.1),
+                0 0 80px rgba(255, 205, 116, 0.2);
+}
+
+/* Track path indicator - the circular track the thumb follows */
+.control-ring::after {
+    content: '';
+    position: absolute;
+    width: var(--track-diameter, 80%);
+    height: var(--track-diameter, 80%);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px dashed rgba(255, 237, 191, 0.25);
+    pointer-events: none;
+}
+
+.control-ring.active::after {
+    border-color: rgba(255, 205, 116, 0.4);
+}
+
+.control-ring-inner {
+    position: absolute;
+    /* Width and height set dynamically via JS */
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle at center,
+        rgba(155, 41, 72, 0.25) 0%,
+        rgba(155, 41, 72, 0.1) 100%);
+    border: 2px solid rgba(255, 237, 191, 0.2);
+    box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+}
+
+.control-thumb {
+    /* Width and height set dynamically via JS, but defaults here */
+    width: 55px;
+    height: 55px;
+    background: radial-gradient(circle at 30% 30%, 
+        #ffcd74 0%, 
+        #ff7251 50%,
+        #9b2948 100%);
+    border: 4px solid #ffedbf;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
+                inset 0 2px 4px rgba(255, 255, 255, 0.4),
+                inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    cursor: grab;
+    z-index: 10;
+    touch-action: none;
+}
+
+.control-thumb::before {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: radial-gradient(circle at 50% 50%,
+        rgba(255, 255, 255, 0.8) 0%,
+        rgba(255, 255, 255, 0) 70%);
+    border-radius: 50%;
+    top: 6px;
+    left: 8px;
+}
+
+.control-thumb.active {
+    cursor: grabbing;
+    border-color: #ffffff;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.6),
+                inset 0 2px 4px rgba(255, 255, 255, 0.5),
+                0 0 40px rgba(255, 205, 116, 0.7),
+                0 0 80px rgba(255, 205, 116, 0.3);
+}
+
+/* Direction indicator - hidden by default, shows current direction */
+.direction-indicator {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+/* Remove the static arrow on the ring since control is now full-screen */
+.control-ring::before {
+    display: none;
 }
 
 /* ==================== MOBILE RESPONSIVE ==================== */
@@ -489,13 +527,9 @@ canvas {
     }
 
     #mobile-section-btn {
-        right: 50%;
-        transform: translateX(50%) translateY(10px) scale(0.9);
-        bottom: 25px;
-    }
-
-    #mobile-section-btn.show {
-        transform: translateX(50%) translateY(0) scale(1);
+        bottom: 120px;
+        padding: 12px 25px;
+        font-size: 14px;
     }
 
     #section-info.panel-show {
@@ -533,65 +567,30 @@ canvas {
         padding: 10px 16px;
         font-size: 14px;
     }
+
+    #mobile-controls {
+        padding-bottom: 15px;
+    }
 }
 
-/* Mobile full-screen panel */
-@media (max-width: 768px) {
-    #section-info {
-        width: 100% !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
-        top: 0 !important;
-        right: -100% !important;
-        left: auto !important;
-        bottom: auto !important;
-        border-radius: 0 !important;
-        padding-top: 60px !important;
-        padding-bottom: 20px !important;
-        padding-left: 20px !important;
-        padding-right: 20px !important;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch !important;
+@media (max-width: 480px) {
+    #mobile-section-btn {
+        bottom: 100px;
+        padding: 10px 20px;
+        font-size: 13px;
+        border-width: 2px;
+    }
+
+    #mobile-controls {
+        padding-bottom: 10px;
     }
     
-    #section-info.panel-show {
-        right: 0 !important;
+    .control-ring {
+        border-width: 2px;
     }
     
-    .close-btn {
-        width: 50px !important;
-        height: 50px !important;
-        font-size: 24px !important;
-        top: 15px !important;
-        right: 15px !important;
-        background: #ff7251 !important;
-        border: 2px solid #ffedbf !important;
-        z-index: 10002 !important;
-    }
-    
-    #section-content {
-        padding-top: 10px !important;
-    }
-    
-    .section-title {
-        font-size: 1.8em !important;
-        margin-bottom: 20px !important;
-    }
-    
-    .project-item {
-        padding: 15px !important;
-        margin: 15px 0 !important;
-        font-size: 16px !important;
-    }
-    
-    .contact-info {
-        padding: 12px !important;
-        margin: 12px 0 !important;
-    }
-    
-    .skill-tag {
-        padding: 8px 12px !important;
-        font-size: 14px !important;
+    .control-thumb {
+        border-width: 3px;
     }
 }
 
