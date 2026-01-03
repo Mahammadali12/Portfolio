@@ -1,14 +1,44 @@
 // ==================== CONFIGURATION ====================
 
 export const CONFIG = {
-    // Physics
+    // Physics - Force-based system
     PHYSICS: {
-        CAR_ACCELERATION: 0.55,
-        CAR_DECELERATION: 0.9,
-        MAX_SPEED: 2.5,
-        DRIFT_FACTOR: 0.85,
-        TURN_SPEED: 0.05,
-        BOUNCE_DAMPING: -0.3
+        // Mass and inertia
+        CAR_MASS: 100000,                    // kg
+        MOMENT_OF_INERTIA: 1500,           // kg·m² (for angular momentum)
+        
+        // Forces
+        ENGINE_FORCE: 3000,                // N (forward thrust) - REDUCED from 5000
+        BRAKE_FORCE: 6000,                 // N (braking force) - REDUCED from 8000
+        REVERSE_FORCE: 1500,               // N (reverse thrust) - NEW
+        STEERING_FORCE: 2000,              // N (lateral steering force)
+        
+        // Resistance
+        DRAG_COEFFICIENT: 0.4,             // Air resistance coefficient
+        ROLLING_RESISTANCE: 50,            // N (constant rolling friction)
+        ANGULAR_DRAG: 0.95,                // Angular velocity decay
+        
+        // Traction
+        TRACTION_COEFFICIENT: 0.85,        // Base tire grip
+        TRACTION_SPEED_FALLOFF: 0.3,       // How much traction decreases with speed
+        MIN_TRACTION: 0.3,                 // Minimum traction at high speed
+        
+        // Limits
+        MAX_SPEED: 2.5,                    // Maximum velocity magnitude
+        MAX_REVERSE_SPEED: 1.0,            // Maximum reverse speed - NEW
+        MAX_ANGULAR_VELOCITY: 0.05,        // Maximum rotation speed (rad/frame)
+        
+        // Drift
+        DRIFT_THRESHOLD: 0.5,              // Speed threshold for drift
+        DRIFT_ANGLE_THRESHOLD: 0.3,        // Angle difference to trigger drift
+        DRIFT_MOMENTUM_PRESERVATION: 0.95, // How much momentum carries through drift
+        
+        // Collision
+        BOUNCE_DAMPING: -0.3,              // Velocity multiplier on collision
+        COLLISION_FRICTION: 0.7,           // Additional friction on collision
+        
+        // Time step (for consistent physics)
+        FIXED_TIMESTEP: 1/60               // 60 FPS physics
     },
 
     // Camera
@@ -129,13 +159,17 @@ export const CONFIG = {
         HORIZONTAL_SWIPE_THRESHOLD: 0.7,
         DRIFT_SWIPE_MULTIPLIER: 1.5,
         CIRCULAR_CONTROL: {
-            THUMB_SIZE: 55,            // Diameter of the joystick thumb (constant)
-            SAFETY_PADDING: 10,        // Pixels from screen edge
-            DEAD_ZONE: 0.1,            // Dead zone threshold
-            STEERING_LERP: 0.15,       // How fast car follows joystick (0-1)
-            RETURN_LERP: 0.1,          // How fast joystick returns to center
-            RETURN_TO_CENTER: false    // Whether joystick returns when released
-        }
+            THUMB_SIZE: 55,
+            SAFETY_PADDING: 10,
+            DEAD_ZONE: 0.1,
+            STEERING_LERP: 0.15,
+            RETURN_LERP: 0.1,
+            RETURN_TO_CENTER: false
+        },
+        // Mobile-specific physics multipliers for responsiveness
+        ENGINE_FORCE_MULTIPLIER: 1.2,      // More responsive acceleration - REDUCED from 1.4
+        STEERING_FORCE_MULTIPLIER: 1.5,    // More responsive steering
+        TORQUE_MULTIPLIER: 1.3             // Faster rotation response
     },
 
     // UI
