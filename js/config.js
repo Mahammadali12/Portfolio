@@ -4,18 +4,18 @@ export const CONFIG = {
     // Physics - Force-based system
     PHYSICS: {
         // Mass and inertia
-        CAR_MASS: 100000,                    // kg
-        MOMENT_OF_INERTIA: 1500,           // kg·m² (for angular momentum)
+        CAR_MASS: 1000,                    // kg (realistic car mass)
+        MOMENT_OF_INERTIA: 1500,           // kg·m² (kept same - realistic for car dimensions)
         
         // Forces
-        ENGINE_FORCE: 3000,                // N (forward thrust) - REDUCED from 5000
-        BRAKE_FORCE: 6000,                 // N (braking force) - REDUCED from 8000
-        REVERSE_FORCE: 1500,               // N (reverse thrust) - NEW
-        STEERING_FORCE: 2000,              // N (lateral steering force)
+        ENGINE_FORCE: 30,                  // N (forward thrust) - scaled 100x down
+        BRAKE_FORCE: 60,                   // N (braking force) - scaled 100x down
+        REVERSE_FORCE: 15,                 // N (reverse thrust) - scaled 100x down
+        STEERING_FORCE: 20,                // N (lateral steering force) - scaled 100x down
         
         // Resistance
         DRAG_COEFFICIENT: 0.4,             // Air resistance coefficient
-        ROLLING_RESISTANCE: 50,            // N (constant rolling friction)
+        ROLLING_RESISTANCE: 0.5,           // N (constant rolling friction) - scaled 100x down
         ANGULAR_DRAG: 0.95,                // Angular velocity decay
         
         // Traction
@@ -25,7 +25,7 @@ export const CONFIG = {
         
         // Limits
         MAX_SPEED: 2.5,                    // Maximum velocity magnitude
-        MAX_REVERSE_SPEED: 1.0,            // Maximum reverse speed - NEW
+        MAX_REVERSE_SPEED: 1.0,            // Maximum reverse speed
         MAX_ANGULAR_VELOCITY: 0.05,        // Maximum rotation speed (rad/frame)
         
         // Drift
@@ -58,12 +58,12 @@ export const CONFIG = {
 
     // Scene
     SCENE: {
-        GROUND_SIZE: 100,
+        GROUND_SIZE: 200,
         BOUNDARY: {
-            minX: -50,
-            maxX: 50,
-            minZ: -50,
-            maxZ: 50
+            minX: -100,
+            maxX: 100,
+            minZ: -100,
+            maxZ: 100
         }
     },
 
@@ -160,7 +160,7 @@ export const CONFIG = {
         DRIFT_SWIPE_MULTIPLIER: 1.5,
         CIRCULAR_CONTROL: {
             THUMB_SIZE: 55,
-            SAFETY_PADDING: 10,
+            SAFETY_PADDING: 25,
             DEAD_ZONE: 0.1,
             STEERING_LERP: 0.15,
             RETURN_LERP: 0.1,

@@ -99,9 +99,9 @@ export class MobileControls {
         this.radiusX = 0;
         this.radiusY = 0;
         
-        // Angle tracking
-        this.currentAngle = -Math.PI / 2;
-        this.targetAngle = -Math.PI / 2;
+        // Angle tracking - START FROM BOTTOM (90° = π/2)
+        this.currentAngle = Math.PI / 2;  // Bottom position
+        this.targetAngle = Math.PI / 2;   // Bottom position
         this.carTargetRotation = Math.PI;
         
         // Smooth steering
@@ -282,7 +282,7 @@ export class MobileControls {
         this.controlRing.classList.remove('active');
         
         if (this.returnToCenter) {
-            this.targetAngle = -Math.PI / 2;
+            this.targetAngle = Math.PI / 2; // Return to bottom
         }
     }
 
@@ -308,25 +308,27 @@ export class MobileControls {
             car.accelerate(1.0);
             moving = true;
             
-            // Calculate target rotation from joystick angle
-            // Negate the angle to make clockwise joystick = clockwise car turn
-            const targetCarRotation = -(this.currentAngle + Math.PI / 2);
+            // Calculate steering input from joystick angle
+            // Reference position is BOTTOM (π/2)
+            // Map joystick angle to steering input: -1 (left/clockwise) to +1 (right/counter-clockwise)
             
-            // Use force-based steering: apply torque to reach target rotation
-            car.setTargetRotation(targetCarRotation, this.steeringLerpSpeed);
+            const bottomAngle = Math.PI / 2;
+            let angleFromBottom = this.normalizeAngle(this.currentAngle - bottomAngle);
             
-            // Track the target for smooth visual feedback
-            this.carTargetRotation = this.lerpAngle(
-                this.carTargetRotation, 
-                targetCarRotation, 
-                this.steeringLerpSpeed
-            );
+            // REVERSED CONTROLS:
+            // Joystick moved left (negative angle from bottom) = positive steering (clockwise)
+            // Joystick moved right (positive angle from bottom) = negative steering (counter-clockwise)
+            // Full range at ±90° (±PI/2)
+            const steeringInput = Math.max(-1, Math.min(1, angleFromBottom / (Math.PI / 2)));
             
-            turning = Math.abs(this.angularVelocity) > 0.01;
+            // Apply continuous steering torque based on joystick position
+            car.applyContinuousSteering(steeringInput, 1.0);
+            
+            turning = Math.abs(steeringInput) > 0.1;
             
             // Calculate turn direction and intensity for visual tilt
-            const turnDirection = Math.sign(this.angularVelocity);
-            const turnIntensity = Math.min(Math.abs(this.angularVelocity) * 10, 1);
+            const turnDirection = -steeringInput;
+            const turnIntensity = Math.abs(steeringInput);
             car.updateTilt(turnDirection * turnIntensity);
             
         } else {
@@ -345,7 +347,7 @@ export class MobileControls {
 
         // Update drift state based on speed and turning intensity
         const speed = car.getVelocity().length();
-        const drifting = speed > 0.5 && turning && Math.abs(this.angularVelocity) > 0.02;
+        const drifting = speed > 0.5 && turning;
         car.updateDrift(drifting);
 
         return { moving, turning };

@@ -387,7 +387,7 @@ canvas {
     display: none;
     justify-content: center;
     align-items: flex-end;
-    padding-bottom: 20px;
+    padding-bottom: 1px; /* REDUCED from 20px to bring control closer to bottom */
 }
 
 #circular-control-container {
@@ -521,7 +521,7 @@ canvas {
         font-size: 14px;
     }
 
-    #section-info.panel-show {
+    #section-info.panel_show {
         right: 5%;
     }
 
@@ -558,7 +558,7 @@ canvas {
     }
 
     #mobile-controls {
-        padding-bottom: 15px;
+        padding-bottom: 5px; /* REDUCED from 15px */
     }
 }
 
@@ -571,7 +571,7 @@ canvas {
     }
 
     #mobile-controls {
-        padding-bottom: 10px;
+        padding-bottom: 0px; /* REDUCED from 10px - touch the bottom on small screens */
     }
     
     .control-ring {

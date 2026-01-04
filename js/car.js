@@ -305,38 +305,34 @@ export class Car {
      */
     applySteeringTorque(direction, intensity = 1) {
         const speed = this.getSpeed();
-        
-        // Steering effectiveness depends on speed
-        // At low speed: direct rotation
-        // At high speed: lateral forces create rotation
+
         const speedFactor = Math.min(speed / 1.5, 1);
         const lowSpeedSteering = 1 - speedFactor;
         const highSpeedSteering = speedFactor;
-        
+
         let steeringForce = CONFIG.PHYSICS.STEERING_FORCE * intensity;
         if (isMobile) {
             steeringForce *= CONFIG.MOBILE.STEERING_FORCE_MULTIPLIER;
         }
-        
-        // Reverse steering direction when reversing
-        const forwardSpeed = this.getForwardSpeed();
-        const steeringDirection = forwardSpeed < -0.1 ? -direction : direction;
-        
-        // Low speed: direct torque for tight turns
+
+        // IMPORTANT:
+        // Do NOT flip steering based on getForwardSpeed() here.
+        // During spins, forwardSpeed crosses 0 just because the car rotated under a mostly-constant velocity.
+        // Only invert while actively reversing (holding S), which sets this.isReversing in brake().
+        const steeringDirection = this.isReversing ? -direction : direction;
+
         if (lowSpeedSteering > 0.1) {
             const directTorque = steeringDirection * steeringForce * 0.5 * lowSpeedSteering;
             this.applyTorque(directTorque);
         }
-        
-        // High speed: lateral force creates natural rotation
+
         if (highSpeedSteering > 0.1 && speed > 0.1) {
             const rightDir = this.getRightDirection();
             const lateralForce = rightDir.clone().multiplyScalar(
                 steeringDirection * steeringForce * highSpeedSteering * this.currentTraction
             );
             this.applyForce(lateralForce);
-            
-            // Also apply some torque for responsiveness
+
             const torqueFromLateral = steeringDirection * steeringForce * 0.3 * highSpeedSteering;
             this.applyTorque(torqueFromLateral);
         }
@@ -392,6 +388,42 @@ export class Car {
         // Determine turn direction for drift and tilt
         this.steeringAngle = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 1);
         this.isTurning = Math.abs(angleDiff) > 0.05;
+    }
+
+    /**
+     * Apply continuous steering torque based on joystick deflection (Smash Bandits style)
+     * @param {number} steeringInput - Steering input from -1 (left) to +1 (right)
+     * @param {number} intensity - 0 to 1 overall intensity multiplier
+     */
+    applyContinuousSteering(steeringInput, intensity = 1) {
+        if (!this.mesh) return;
+        
+        const speed = this.getSpeed();
+        
+        // Base torque from config
+        let baseTorque = CONFIG.PHYSICS.STEERING_FORCE * intensity;
+        if (isMobile) {
+            baseTorque *= CONFIG.MOBILE.TORQUE_MULTIPLIER;
+        }
+        
+        // Apply torque directly based on steering input
+        // Positive input = turn right (clockwise), negative = turn left (counter-clockwise)
+        const torque = -steeringInput * baseTorque;
+        this.applyTorque(torque);
+        
+        // Also apply some lateral force at speed for realistic cornering
+        if (speed > 0.3) {
+            const speedFactor = Math.min(speed / 1.5, 1);
+            const rightDir = this.getRightDirection();
+            const lateralForce = rightDir.clone().multiplyScalar(
+                -steeringInput * baseTorque * 0.5 * speedFactor * this.currentTraction
+            );
+            this.applyForce(lateralForce);
+        }
+        
+        // Update state for drift and tilt
+        this.steeringAngle = steeringInput;
+        this.isTurning = Math.abs(steeringInput) > 0.1;
     }
 
     // === PHYSICS CALCULATION METHODS ===
