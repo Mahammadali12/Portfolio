@@ -71,7 +71,7 @@ export class DesktopControls {
     }
 }
 
-// ==================== MOBILE CONTROLS (SMASH BANDITS STYLE) ====================
+// ==================== MOBILE CONTROLS (STEERING WHEEL STYLE) ====================
 export class MobileControls {
     constructor(renderer) {
         this.renderer = renderer;
@@ -103,6 +103,11 @@ export class MobileControls {
         this.currentAngle = Math.PI / 2;  // Bottom position
         this.targetAngle = Math.PI / 2;   // Bottom position
         this.carTargetRotation = Math.PI;
+        
+        // Cumulative angle for steering wheel behavior (no wrapping)
+        this.cumulativeAngle = 0;  // Angle from starting position (bottom)
+        this.previousRawAngle = Math.PI / 2;  // For calculating rotation delta
+        this.maxSteeringRotation = Math.PI * 1.5;  // Max ±270° rotation
         
         // Smooth steering
         this.steeringLerpSpeed = CONFIG.MOBILE.CIRCULAR_CONTROL.STEERING_LERP || 0.12;
@@ -219,6 +224,11 @@ export class MobileControls {
         this.updateControlCenter();
         
         this.updateAngleFromTouch(touch.clientX, touch.clientY);
+        
+        // Reset cumulative angle tracking for steering wheel behavior
+        this.cumulativeAngle = 0;
+        this.previousRawAngle = this.currentAngle;
+        
         this.updateThumbPosition(this.currentAngle);
     }
 
@@ -238,8 +248,20 @@ export class MobileControls {
         e.preventDefault();
         
         this.previousAngle = this.currentAngle;
+        const oldRawAngle = this.previousRawAngle;
+        
         this.updateAngleFromTouch(touch.clientX, touch.clientY);
-        this.angularVelocity = this.normalizeAngle(this.currentAngle - this.previousAngle);
+        
+        // Calculate shortest angular delta for cumulative tracking
+        let delta = this.normalizeAngle(this.currentAngle - oldRawAngle);
+        this.cumulativeAngle += delta;
+        
+        // Clamp cumulative angle to max steering rotation
+        this.cumulativeAngle = Math.max(-this.maxSteeringRotation, 
+                                       Math.min(this.maxSteeringRotation, this.cumulativeAngle));
+        
+        this.previousRawAngle = this.currentAngle;
+        this.angularVelocity = delta;
         this.updateThumbPosition(this.currentAngle);
     }
 
@@ -281,8 +303,12 @@ export class MobileControls {
         this.controlThumb.classList.remove('active');
         this.controlRing.classList.remove('active');
         
+        // Reset cumulative angle when releasing
+        this.cumulativeAngle = 0;
+        
         if (this.returnToCenter) {
             this.targetAngle = Math.PI / 2; // Return to bottom
+            this.previousRawAngle = Math.PI / 2;
         }
     }
 
@@ -308,20 +334,21 @@ export class MobileControls {
             car.accelerate(1.0);
             moving = true;
             
-            // Calculate steering input from joystick angle
-            // Reference position is BOTTOM (π/2)
-            // Map joystick angle to steering input: -1 (left/clockwise) to +1 (right/counter-clockwise)
+            // Calculate steering input from CUMULATIVE angle (steering wheel behavior)
+            // Cumulative angle is relative to starting position (bottom)
+            // When thumb moves clockwise (to left), cumulative angle becomes NEGATIVE
+            // When thumb moves counter-clockwise (to right), cumulative angle becomes POSITIVE
             
-            const bottomAngle = Math.PI / 2;
-            let angleFromBottom = this.normalizeAngle(this.currentAngle - bottomAngle);
+            // For steering wheel feel:
+            // Clockwise thumb movement (negative cumulative) = turn RIGHT (positive steering)
+            // Counter-clockwise thumb movement (positive cumulative) = turn LEFT (negative steering)
             
-            // REVERSED CONTROLS:
-            // Joystick moved left (negative angle from bottom) = positive steering (clockwise)
-            // Joystick moved right (positive angle from bottom) = negative steering (counter-clockwise)
-            // Full range at ±90° (±PI/2)
-            const steeringInput = Math.max(-1, Math.min(1, angleFromBottom / (Math.PI / 2)));
+            // Map cumulative rotation to steering input (negated for correct direction)
+            const steeringInput = -Math.max(-1, Math.min(1, 
+                -this.cumulativeAngle / (Math.PI / 2)
+            ));
             
-            // Apply continuous steering torque based on joystick position
+            // Apply continuous steering torque based on cumulative rotation
             car.applyContinuousSteering(steeringInput, 1.0);
             
             turning = Math.abs(steeringInput) > 0.1;

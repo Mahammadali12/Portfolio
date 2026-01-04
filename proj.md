@@ -34,11 +34,37 @@ export class Car {
         this.scene = scene;
         this.camera = camera;
         this.mesh = null;
+        
+        // === MOMENTUM-BASED PHYSICS PROPERTIES ===
+        // Mass and inertia
+        this.mass = CONFIG.PHYSICS.CAR_MASS;
+        this.momentOfInertia = CONFIG.PHYSICS.MOMENT_OF_INERTIA;
+        
+        // Linear motion
         this.velocity = new THREE.Vector3(0, 0, 0);
+        this.acceleration = new THREE.Vector3(0, 0, 0);
+        this.forces = new THREE.Vector3(0, 0, 0);
+        
+        // Angular motion
+        this.angularVelocity = 0;           // Current rotation speed (rad/frame)
+        this.angularAcceleration = 0;        // Angular acceleration
+        this.torque = 0;                     // Accumulated torque
+        this.steeringAngle = 0;              // Current steering wheel angle
+        
+        // Traction and drift
+        this.currentTraction = CONFIG.PHYSICS.TRACTION_COEFFICIENT;
         this.isDrifting = false;
         this.driftAngle = 0;
+        this.lateralVelocity = new THREE.Vector3(0, 0, 0);
+        
+        // State flags
         this.isAccelerating = false;
         this.isBraking = false;
+        this.isTurning = false;
+        this.isReversing = false;          // NEW: track reverse state
+        
+        // Weight transfer (for realistic feel)
+        this.weightTransfer = { front: 0.5, rear: 0.5, left: 0.5, right: 0.5 };
         
         this.load();
     }
@@ -168,65 +194,487 @@ export class Car {
         this.camera.lookAt(this.mesh.position);
     }
 
+    // === HELPER METHODS ===
+    
     getForwardDirection() {
         return new THREE.Vector3(
-            Math.sin(this.mesh.rotation.y),
+            -Math.sin(this.mesh.rotation.y),
             0,
-            Math.cos(this.mesh.rotation.y)
+            -Math.cos(this.mesh.rotation.y)
         );
     }
 
+    getRightDirection() {
+        return new THREE.Vector3(
+            -Math.cos(this.mesh.rotation.y),
+            0,
+            Math.sin(this.mesh.rotation.y)
+        );
+    }
+
+    getSpeed() {
+        return this.velocity.length();
+    }
+
+    /**
+     * Get speed in the forward direction (positive = forward, negative = reverse)
+     */
+    getForwardSpeed() {
+        const forward = this.getForwardDirection();
+        return -this.velocity.dot(forward); // Negative because forward is in -Z direction
+    }
+
+    // === FORCE APPLICATION METHODS ===
+    
+    /**
+     * Apply a force to the car (accumulates until next physics update)
+     * @param {THREE.Vector3} force - Force vector in Newtons
+     */
+    applyForce(force) {
+        this.forces.add(force);
+    }
+
+    /**
+     * Apply torque for rotation
+     * @param {number} torqueAmount - Torque in N·m
+     */
+    applyTorque(torqueAmount) {
+        this.torque += torqueAmount;
+    }
+
+    /**
+     * Engine force - applies forward thrust
+     * @param {number} intensity - 0 to 1 throttle intensity
+     */
     accelerate(intensity = 1) {
         const forward = this.getForwardDirection();
-        this.velocity.add(forward.clone().multiplyScalar(CONFIG.PHYSICS.CAR_ACCELERATION * 0.1 * intensity));
+        let engineForce = CONFIG.PHYSICS.ENGINE_FORCE * intensity;
+        
+        // Apply mobile multiplier for responsiveness
+        if (isMobile) {
+            engineForce *= CONFIG.MOBILE.ENGINE_FORCE_MULTIPLIER;
+        }
+        
+        // Apply force in forward direction (negative because of coordinate system)
+        const thrustForce = forward.clone().multiplyScalar(-engineForce);
+        this.applyForce(thrustForce);
+        
+        // Weight transfer: accelerating shifts weight to rear
+        this.weightTransfer.rear = 0.6;
+        this.weightTransfer.front = 0.4;
+        
         this.isAccelerating = true;
+        this.isReversing = false;
     }
 
+    /**
+     * Brake/Reverse force - brakes if moving forward, reverses if stopped
+     * @param {number} intensity - 0 to 1 brake intensity
+     */
     brake(intensity = 1) {
         const forward = this.getForwardDirection();
-        this.velocity.add(forward.clone().multiplyScalar(-CONFIG.PHYSICS.CAR_ACCELERATION * 0.08 * intensity));
-        this.isBraking = true;
-    }
-
-    turnLeft(intensity = 1) {
-        const speed = this.velocity.length();
-        const turnAmount = CONFIG.PHYSICS.TURN_SPEED * intensity * (Math.min(speed, 0.5) / 0.5);
-        this.mesh.rotation.y += turnAmount;
-    }
-
-    turnRight(intensity = 1) {
-        const speed = this.velocity.length();
-        const turnAmount = CONFIG.PHYSICS.TURN_SPEED * intensity * (Math.min(speed, 0.5) / 0.5);
-        this.mesh.rotation.y -= turnAmount;
-    }
-
-    applyFriction() {
-        this.velocity.multiplyScalar(CONFIG.PHYSICS.CAR_DECELERATION);
-    }
-
-    limitSpeed() {
-        if (this.velocity.length() > CONFIG.PHYSICS.MAX_SPEED) {
-            this.velocity.setLength(CONFIG.PHYSICS.MAX_SPEED);
+        const forwardSpeed = this.getForwardSpeed();
+        const speed = this.getSpeed();
+        
+        // If moving forward (forwardSpeed > 0), apply braking force
+        if (forwardSpeed > 0.05) {
+            // Apply brake force opposite to velocity
+            let brakeForce = CONFIG.PHYSICS.BRAKE_FORCE * intensity;
+            
+            if (isMobile) {
+                brakeForce *= CONFIG.MOBILE.ENGINE_FORCE_MULTIPLIER;
+            }
+            
+            const brakeDirection = this.velocity.clone().normalize();
+            const brakingForce = brakeDirection.multiplyScalar(-brakeForce);
+            this.applyForce(brakingForce);
+            
+            // Weight transfer: braking shifts weight to front
+            this.weightTransfer.front = 0.7;
+            this.weightTransfer.rear = 0.3;
+            
+            this.isBraking = true;
+            this.isReversing = false;
+        } 
+        // If nearly stopped or moving backward, allow reverse
+        else {
+            // Check if we're at max reverse speed
+            const maxReverseSpeed = CONFIG.PHYSICS.MAX_REVERSE_SPEED;
+            const reverseSpeed = Math.abs(Math.min(forwardSpeed, 0));
+            
+            if (reverseSpeed < maxReverseSpeed) {
+                let reverseForce = CONFIG.PHYSICS.REVERSE_FORCE * intensity;
+                
+                if (isMobile) {
+                    reverseForce *= CONFIG.MOBILE.ENGINE_FORCE_MULTIPLIER;
+                }
+                
+                // Apply reverse force (positive in forward direction = backward movement)
+                const reverseThrustForce = forward.clone().multiplyScalar(reverseForce);
+                this.applyForce(reverseThrustForce);
+            }
+            
+            // Weight transfer for reverse
+            this.weightTransfer.front = 0.4;
+            this.weightTransfer.rear = 0.6;
+            
+            this.isBraking = false;
+            this.isReversing = true;
         }
     }
 
+    /**
+     * Apply steering torque to rotate the car
+     * @param {number} direction - -1 (left) to 1 (right)
+     * @param {number} intensity - 0 to 1 steering intensity
+     */
+    applySteeringTorque(direction, intensity = 1) {
+        const speed = this.getSpeed();
+
+        const speedFactor = Math.min(speed / 1.5, 1);
+        const lowSpeedSteering = 1 - speedFactor;
+        const highSpeedSteering = speedFactor;
+
+        let steeringForce = CONFIG.PHYSICS.STEERING_FORCE * intensity;
+        if (isMobile) {
+            steeringForce *= CONFIG.MOBILE.STEERING_FORCE_MULTIPLIER;
+        }
+
+        // IMPORTANT:
+        // Do NOT flip steering based on getForwardSpeed() here.
+        // During spins, forwardSpeed crosses 0 just because the car rotated under a mostly-constant velocity.
+        // Only invert while actively reversing (holding S), which sets this.isReversing in brake().
+        const steeringDirection = this.isReversing ? -direction : direction;
+
+        if (lowSpeedSteering > 0.1) {
+            const directTorque = steeringDirection * steeringForce * 0.5 * lowSpeedSteering;
+            this.applyTorque(directTorque);
+        }
+
+        if (highSpeedSteering > 0.1 && speed > 0.1) {
+            const rightDir = this.getRightDirection();
+            const lateralForce = rightDir.clone().multiplyScalar(
+                steeringDirection * steeringForce * highSpeedSteering * this.currentTraction
+            );
+            this.applyForce(lateralForce);
+
+            const torqueFromLateral = steeringDirection * steeringForce * 0.3 * highSpeedSteering;
+            this.applyTorque(torqueFromLateral);
+        }
+        
+        // Weight transfer: turning shifts weight to outside wheels
+        if (direction > 0) {
+            this.weightTransfer.left = 0.6;
+            this.weightTransfer.right = 0.4;
+        } else if (direction < 0) {
+            this.weightTransfer.left = 0.4;
+            this.weightTransfer.right = 0.6;
+        }
+        
+        this.steeringAngle = direction * intensity;
+        this.isTurning = true;
+    }
+
+    /**
+     * Legacy turn methods for desktop controls compatibility
+     */
+    turnLeft(intensity = 1) {
+        this.applySteeringTorque(1, intensity);
+    }
+
+    turnRight(intensity = 1) {
+        this.applySteeringTorque(-1, intensity);
+    }
+
+    /**
+     * Direct rotation control for mobile (applies torque to reach target)
+     * @param {number} targetRotation - Target rotation in radians
+     * @param {number} lerpFactor - How fast to approach target
+     */
+    setTargetRotation(targetRotation, lerpFactor = 0.15) {
+        if (!this.mesh) return;
+        
+        // Calculate angle difference
+        let angleDiff = targetRotation - this.mesh.rotation.y;
+        
+        // Normalize to -PI to PI
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        
+        // Apply torque proportional to angle difference
+        let torqueMultiplier = CONFIG.PHYSICS.STEERING_FORCE * 0.8;
+        if (isMobile) {
+            torqueMultiplier *= CONFIG.MOBILE.TORQUE_MULTIPLIER;
+        }
+        
+        const torque = angleDiff * torqueMultiplier * lerpFactor;
+        this.applyTorque(torque);
+        
+        // Determine turn direction for drift and tilt
+        this.steeringAngle = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 1);
+        this.isTurning = Math.abs(angleDiff) > 0.05;
+    }
+
+    /**
+     * Apply continuous steering torque based on joystick deflection (Smash Bandits style)
+     * @param {number} steeringInput - Steering input from -1 (left) to +1 (right)
+     * @param {number} intensity - 0 to 1 overall intensity multiplier
+     */
+    applyContinuousSteering(steeringInput, intensity = 1) {
+        if (!this.mesh) return;
+        
+        const speed = this.getSpeed();
+        
+        // Base torque from config
+        let baseTorque = CONFIG.PHYSICS.STEERING_FORCE * intensity;
+        if (isMobile) {
+            baseTorque *= CONFIG.MOBILE.TORQUE_MULTIPLIER;
+        }
+        
+        // Apply torque directly based on steering input
+        // Positive input = turn right (clockwise), negative = turn left (counter-clockwise)
+        const torque = -steeringInput * baseTorque;
+        this.applyTorque(torque);
+        
+        // Also apply some lateral force at speed for realistic cornering
+        if (speed > 0.3) {
+            const speedFactor = Math.min(speed / 1.5, 1);
+            const rightDir = this.getRightDirection();
+            const lateralForce = rightDir.clone().multiplyScalar(
+                -steeringInput * baseTorque * 0.5 * speedFactor * this.currentTraction
+            );
+            this.applyForce(lateralForce);
+        }
+        
+        // Update state for drift and tilt
+        this.steeringAngle = steeringInput;
+        this.isTurning = Math.abs(steeringInput) > 0.1;
+    }
+
+    // === PHYSICS CALCULATION METHODS ===
+
+    /**
+     * Calculate current traction based on speed
+     */
+    calculateTraction() {
+        const speed = this.getSpeed();
+        const maxSpeed = CONFIG.PHYSICS.MAX_SPEED;
+        const speedRatio = speed / maxSpeed;
+        
+        // Traction decreases with speed
+        const tractionLoss = speedRatio * CONFIG.PHYSICS.TRACTION_SPEED_FALLOFF;
+        this.currentTraction = Math.max(
+            CONFIG.PHYSICS.MIN_TRACTION,
+            CONFIG.PHYSICS.TRACTION_COEFFICIENT - tractionLoss
+        );
+        
+        // Further reduce traction if drifting
+        if (this.isDrifting) {
+            this.currentTraction *= 0.7;
+        }
+        
+        return this.currentTraction;
+    }
+
+    /**
+     * Apply drag forces (air resistance + rolling resistance)
+     */
+    applyDragForces() {
+        const speed = this.getSpeed();
+        if (speed < 0.001) return;
+        
+        const velocityDir = this.velocity.clone().normalize();
+        
+        // Air drag: F = 0.5 * Cd * v²
+        // Simplified: drag increases quadratically with speed
+        const dragCoeff = CONFIG.PHYSICS.DRAG_COEFFICIENT;
+        const dragMagnitude = dragCoeff * speed * speed * this.mass * 0.01;
+        const dragForce = velocityDir.clone().multiplyScalar(-dragMagnitude);
+        this.applyForce(dragForce);
+        
+        // Rolling resistance: constant force opposing motion
+        const rollingResistance = CONFIG.PHYSICS.ROLLING_RESISTANCE;
+        const rollingForce = velocityDir.clone().multiplyScalar(-rollingResistance);
+        this.applyForce(rollingForce);
+    }
+
+    /**
+     * Apply lateral friction (tire grip)
+     */
+    applyLateralFriction() {
+        const speed = this.getSpeed();
+        if (speed < 0.01) return;
+        
+        // Calculate lateral (sideways) velocity component
+        const forward = this.getForwardDirection();
+        const right = this.getRightDirection();
+        
+        // Project velocity onto right direction to get lateral component
+        const lateralSpeed = this.velocity.dot(right);
+        this.lateralVelocity.copy(right).multiplyScalar(lateralSpeed);
+        
+        // Apply friction force opposing lateral motion (tire grip)
+        const lateralFriction = this.lateralVelocity.clone().multiplyScalar(
+            -this.currentTraction * this.mass * 0.1
+        );
+        
+        // In drift mode, reduce lateral friction for sliding
+        if (this.isDrifting) {
+            lateralFriction.multiplyScalar(CONFIG.PHYSICS.DRIFT_MOMENTUM_PRESERVATION);
+        }
+        
+        this.applyForce(lateralFriction);
+    }
+
+    /**
+     * Integrate forces into acceleration, then velocity
+     * F = ma, therefore a = F/m
+     */
+    integrateForces() {
+        // Linear: a = F / m
+        this.acceleration.copy(this.forces).divideScalar(this.mass);
+        
+        // Add acceleration to velocity
+        this.velocity.add(this.acceleration);
+        
+        // Angular: α = τ / I
+        this.angularAcceleration = this.torque / this.momentOfInertia;
+        
+        // Add angular acceleration to angular velocity
+        this.angularVelocity += this.angularAcceleration;
+        
+        // Apply angular drag
+        this.angularVelocity *= CONFIG.PHYSICS.ANGULAR_DRAG;
+        
+        // Clamp angular velocity
+        const maxAngular = CONFIG.PHYSICS.MAX_ANGULAR_VELOCITY;
+        this.angularVelocity = Math.max(-maxAngular, Math.min(maxAngular, this.angularVelocity));
+    }
+
+    /**
+     * Clear force accumulators for next frame
+     */
+    clearForces() {
+        this.forces.set(0, 0, 0);
+        this.torque = 0;
+        this.acceleration.set(0, 0, 0);
+        this.angularAcceleration = 0;
+    }
+
+    /**
+     * Limit maximum speed (forward and reverse)
+     */
+    limitSpeed() {
+        const forwardSpeed = this.getForwardSpeed();
+        const speed = this.getSpeed();
+        
+        // Limit forward speed
+        if (forwardSpeed > 0 && speed > CONFIG.PHYSICS.MAX_SPEED) {
+            this.velocity.setLength(CONFIG.PHYSICS.MAX_SPEED);
+        }
+        
+        // Limit reverse speed
+        if (forwardSpeed < 0 && speed > CONFIG.PHYSICS.MAX_REVERSE_SPEED) {
+            this.velocity.setLength(CONFIG.PHYSICS.MAX_REVERSE_SPEED);
+        }
+    }
+
+    /**
+     * Check and handle boundary collisions
+     */
     checkBoundaries() {
         const { minX, maxX, minZ, maxZ } = CONFIG.SCENE.BOUNDARY;
         const newX = this.mesh.position.x + this.velocity.x;
         const newZ = this.mesh.position.z + this.velocity.z;
         
-        if (newX > minX && newX < maxX && newZ > minZ && newZ < maxZ) {
-            this.mesh.position.x = newX;
-            this.mesh.position.z = newZ;
-            return true;
+        let collided = false;
+        
+        // Check X boundaries
+        if (newX <= minX || newX >= maxX) {
+            this.velocity.x *= CONFIG.PHYSICS.BOUNCE_DAMPING;
+            this.velocity.z *= CONFIG.PHYSICS.COLLISION_FRICTION;
+            this.angularVelocity *= 0.5; // Reduce spin on collision
+            collided = true;
+        }
+        
+        // Check Z boundaries
+        if (newZ <= minZ || newZ >= maxZ) {
+            this.velocity.z *= CONFIG.PHYSICS.BOUNCE_DAMPING;
+            this.velocity.x *= CONFIG.PHYSICS.COLLISION_FRICTION;
+            this.angularVelocity *= 0.5;
+            collided = true;
+        }
+        
+        // Apply position with boundary clamping
+        this.mesh.position.x = Math.max(minX + 0.5, Math.min(maxX - 0.5, newX));
+        this.mesh.position.z = Math.max(minZ + 0.5, Math.min(maxZ - 0.5, newZ));
+        
+        return !collided;
+    }
+
+    /**
+     * Apply rotation from angular velocity
+     */
+    applyRotation() {
+        this.mesh.rotation.y += this.angularVelocity;
+    }
+
+    // === DRIFT PHYSICS ===
+
+    /**
+     * Update drift state based on current physics
+     * @param {boolean} isTurning - Whether player is actively steering
+     */
+    updateDrift(isTurning) {
+        const speed = this.getSpeed();
+        const driftThreshold = CONFIG.PHYSICS.DRIFT_THRESHOLD;
+        
+        // Calculate angle between velocity and forward direction
+        if (speed > 0.1) {
+            const forward = this.getForwardDirection();
+            const velocityDir = this.velocity.clone().normalize();
+            const dot = forward.dot(velocityDir);
+            const angleDiff = Math.acos(Math.max(-1, Math.min(1, dot)));
+            
+            // Enter drift if turning at speed with significant angle
+            const shouldDrift = speed > driftThreshold && 
+                               isTurning && 
+                               angleDiff > CONFIG.PHYSICS.DRIFT_ANGLE_THRESHOLD;
+            
+            if (shouldDrift && !this.isDrifting) {
+                this.isDrifting = true;
+            } else if (!isTurning && this.isDrifting) {
+                // Exit drift gradually when not turning
+                this.isDrifting = false;
+            }
         } else {
-            // Bounce off boundaries
-            this.velocity.multiplyScalar(CONFIG.PHYSICS.BOUNCE_DAMPING);
-            return false;
+            this.isDrifting = false;
         }
     }
 
-    // NEW METHOD: Check if car is near boundaries (for enhanced mobile turning)
+    /**
+     * Update visual tilt based on turning
+     * @param {number} turnDirection - -1 to 1 indicating turn direction/intensity
+     */
+    updateTilt(turnDirection) {
+        const speed = this.getSpeed();
+        const speedFactor = Math.min(speed / 1.5, 1);
+        
+        if (this.isDrifting) {
+            // More dramatic tilt when drifting
+            this.driftAngle = turnDirection * 0.4 * speedFactor;
+        } else {
+            // Subtle tilt based on lateral g-force
+            this.driftAngle = turnDirection * 0.15 * speedFactor;
+        }
+        
+        // Smoothly apply tilt
+        const targetTilt = this.driftAngle * 0.3;
+        this.mesh.rotation.z += (targetTilt - this.mesh.rotation.z) * 0.1;
+    }
+
+    // === CHECK BOUNDARY PROXIMITY ===
+    
     isAtBoundary() {
         if (!this.mesh) return false;
         const { minX, maxX, minZ, maxZ } = CONFIG.SCENE.BOUNDARY;
@@ -237,41 +685,53 @@ export class Car {
                pos.z <= minZ + threshold || pos.z >= maxZ - threshold;
     }
 
-    updateDrift(isTurning) {
-        const speed = this.velocity.length();
-        this.isDrifting = speed > 0.5 && isTurning;
+    // === MAIN UPDATE LOOP ===
 
-        if (this.isDrifting) {
-            const velocityDir = this.velocity.clone().normalize();
-            const forward = this.getForwardDirection();
-            const blendedDir = velocityDir.lerp(forward, 0.8);
-            this.velocity.copy(blendedDir.multiplyScalar(speed));
-        }
-    }
-
-    updateTilt(turnDirection) {
-        if (this.isDrifting) {
-            this.driftAngle = turnDirection * 0.3;
-        } else {
-            this.driftAngle = 0;
-        }
-        this.mesh.rotation.z = this.driftAngle * 0.3;
-    }
-
+    /**
+     * Main physics update - called every frame
+     * Implements: Force accumulation → Integration → Position update → Clear
+     */
     update() {
         if (!this.mesh) return false;
 
-        this.applyFriction();
+        // 1. Calculate traction (affects all force applications)
+        this.calculateTraction();
+        
+        // 2. Apply environmental forces
+        this.applyDragForces();
+        this.applyLateralFriction();
+        
+        // 3. Integrate forces into velocity (F = ma)
+        this.integrateForces();
+        
+        // 4. Limit maximum speed
         this.limitSpeed();
         
+        // 5. Apply rotation from angular velocity
+        this.applyRotation();
+        
+        // 6. Apply position from velocity and check boundaries
         const moved = this.checkBoundaries();
         
-        // Reset acceleration states
+        // 7. Clear force accumulators for next frame
+        this.clearForces();
+        
+        // 8. Reset weight transfer gradually
+        this.weightTransfer.front += (0.5 - this.weightTransfer.front) * 0.1;
+        this.weightTransfer.rear += (0.5 - this.weightTransfer.rear) * 0.1;
+        this.weightTransfer.left += (0.5 - this.weightTransfer.left) * 0.1;
+        this.weightTransfer.right += (0.5 - this.weightTransfer.right) * 0.1;
+        
+        // 9. Reset state flags
         this.isAccelerating = false;
         this.isBraking = false;
+        this.isTurning = false;
+        this.isReversing = false;
         
         return moved;
     }
+
+    // === GETTERS ===
 
     getPosition() {
         return this.mesh ? this.mesh.position : null;
@@ -290,23 +750,51 @@ export class Car {
     }
 }
 
-
 ```
-
 **config.js**
 ```javascript
 
 // ==================== CONFIGURATION ====================
 
 export const CONFIG = {
-    // Physics
+    // Physics - Force-based system
     PHYSICS: {
-        CAR_ACCELERATION: 0.55,
-        CAR_DECELERATION: 0.9,
-        MAX_SPEED: 2.5,
-        DRIFT_FACTOR: 0.85,
-        TURN_SPEED: 0.05,
-        BOUNCE_DAMPING: -0.3
+        // Mass and inertia
+        CAR_MASS: 1000,                    // kg (realistic car mass)
+        MOMENT_OF_INERTIA: 1500,           // kg·m² (kept same - realistic for car dimensions)
+        
+        // Forces
+        ENGINE_FORCE: 30,                  // N (forward thrust) - scaled 100x down
+        BRAKE_FORCE: 60,                   // N (braking force) - scaled 100x down
+        REVERSE_FORCE: 15,                 // N (reverse thrust) - scaled 100x down
+        STEERING_FORCE: 20,                // N (lateral steering force) - scaled 100x down
+        
+        // Resistance
+        DRAG_COEFFICIENT: 0.4,             // Air resistance coefficient
+        ROLLING_RESISTANCE: 0.5,           // N (constant rolling friction) - scaled 100x down
+        ANGULAR_DRAG: 0.95,                // Angular velocity decay
+        
+        // Traction
+        TRACTION_COEFFICIENT: 0.85,        // Base tire grip
+        TRACTION_SPEED_FALLOFF: 0.3,       // How much traction decreases with speed
+        MIN_TRACTION: 0.3,                 // Minimum traction at high speed
+        
+        // Limits
+        MAX_SPEED: 2.5,                    // Maximum velocity magnitude
+        MAX_REVERSE_SPEED: 1.0,            // Maximum reverse speed
+        MAX_ANGULAR_VELOCITY: 0.05,        // Maximum rotation speed (rad/frame)
+        
+        // Drift
+        DRIFT_THRESHOLD: 0.5,              // Speed threshold for drift
+        DRIFT_ANGLE_THRESHOLD: 0.3,        // Angle difference to trigger drift
+        DRIFT_MOMENTUM_PRESERVATION: 0.95, // How much momentum carries through drift
+        
+        // Collision
+        BOUNCE_DAMPING: -0.3,              // Velocity multiplier on collision
+        COLLISION_FRICTION: 0.7,           // Additional friction on collision
+        
+        // Time step (for consistent physics)
+        FIXED_TIMESTEP: 1/60               // 60 FPS physics
     },
 
     // Camera
@@ -326,12 +814,12 @@ export const CONFIG = {
 
     // Scene
     SCENE: {
-        GROUND_SIZE: 100,
+        GROUND_SIZE: 200,
         BOUNDARY: {
-            minX: -50,
-            maxX: 50,
-            minZ: -50,
-            maxZ: 50
+            minX: -100,
+            maxX: 100,
+            minZ: -100,
+            maxZ: 100
         }
     },
 
@@ -419,19 +907,25 @@ export const CONFIG = {
         FALLBACK_SIZE: { body: [2.5, 1, 4.5], wheel: [0.4, 0.4, 0.3] }
     },
 
-    // Mobile
+    // Mobile - Updated for Smash Bandits style circular control
     MOBILE: {
         SWIPE_THRESHOLD: 30,
         HOLD_THRESHOLD: 100,
         TURN_INTENSITY_MAX: 1.5,
         HORIZONTAL_SWIPE_THRESHOLD: 0.7,
         DRIFT_SWIPE_MULTIPLIER: 1.5,
-        JOYSTICK: {
-            BASE_RADIUS: 60,
-            KNOB_RADIUS: 30,
-            MAX_DISTANCE: 40,
-            DEAD_ZONE: 0.15
-        }
+        CIRCULAR_CONTROL: {
+            THUMB_SIZE: 55,
+            SAFETY_PADDING: 25,
+            DEAD_ZONE: 0.1,
+            STEERING_LERP: 0.15,
+            RETURN_LERP: 0.1,
+            RETURN_TO_CENTER: false
+        },
+        // Mobile-specific physics multipliers for responsiveness
+        ENGINE_FORCE_MULTIPLIER: 1.2,      // More responsive acceleration - REDUCED from 1.4
+        STEERING_FORCE_MULTIPLIER: 1.5,    // More responsive steering
+        TORQUE_MULTIPLIER: 1.3             // Faster rotation response
     },
 
     // UI
@@ -451,8 +945,11 @@ export const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Oper
 
 ```
 
+
+
 **controls.js**
 ```javascript
+
 // ==================== INPUT CONTROLS ====================
 
 import { CONFIG, isMobile } from './config.js';
@@ -492,26 +989,33 @@ export class DesktopControls {
         let moving = false;
         let turning = false;
 
+        // Apply engine force when W is pressed
         if (this.keyStates.w) {
-            car.accelerate();
+            car.accelerate(1.0);
             moving = true;
-        } else if (this.keyStates.s) {
-            car.brake();
+        }
+        
+        // Apply brake force when S is pressed
+        if (this.keyStates.s) {
+            car.brake(1.0);
             moving = true;
         }
 
+        // Apply steering torque for turning
         if (this.keyStates.a) {
-            car.turnLeft();
+            car.turnLeft(1.0);
             turning = true;
         }
         
         if (this.keyStates.d) {
-            car.turnRight();
+            car.turnRight(1.0);
             turning = true;
         }
 
+        // Update drift state
         car.updateDrift(turning);
         
+        // Update visual tilt based on turn direction
         const turnDirection = this.keyStates.a ? 1 : (this.keyStates.d ? -1 : 0);
         car.updateTilt(turnDirection);
 
@@ -519,138 +1023,230 @@ export class DesktopControls {
     }
 }
 
-// ==================== MOBILE CONTROLS (VIRTUAL JOYSTICK) ====================
+// ==================== MOBILE CONTROLS (SMASH BANDITS STYLE) ====================
 export class MobileControls {
     constructor(renderer) {
         this.renderer = renderer;
         
-        // Virtual joystick elements
-        this.joystickBase = null;
-        this.joystickKnob = null;
+        // Circular control elements
+        this.controlContainer = null;
+        this.controlRing = null;
+        this.controlThumb = null;
+        this.controlRingInner = null;
+        this.directionIndicator = null;
         
-        // Joystick state
+        // Control state
         this.isActive = false;
+        this.activeTouch = null;
         this.centerX = 0;
         this.centerY = 0;
-        this.currentX = 0;
-        this.currentY = 0;
-        this.vectorX = 0;  // Normalized -1 to 1
-        this.vectorY = 0;  // Normalized -1 to 1
+        
+        // Dynamic sizing
+        this.outerDiameter = 0;
+        this.innerDiameter = 0;
+        this.thumbSize = CONFIG.MOBILE.CIRCULAR_CONTROL.THUMB_SIZE || 55;
+        this.safetyPadding = CONFIG.MOBILE.CIRCULAR_CONTROL.SAFETY_PADDING || 10;
+        
+        // Path constraints
+        this.radiusX = 0;
+        this.radiusY = 0;
+        
+        // Angle tracking - START FROM BOTTOM (90° = π/2)
+        this.currentAngle = Math.PI / 2;  // Bottom position
+        this.targetAngle = Math.PI / 2;   // Bottom position
+        this.carTargetRotation = Math.PI;
+        
+        // Smooth steering
+        this.steeringLerpSpeed = CONFIG.MOBILE.CIRCULAR_CONTROL.STEERING_LERP || 0.12;
+        this.returnLerpSpeed = CONFIG.MOBILE.CIRCULAR_CONTROL.RETURN_LERP || 0.08;
+        this.returnToCenter = CONFIG.MOBILE.CIRCULAR_CONTROL.RETURN_TO_CENTER !== false;
+        
+        // Angular tracking for drift detection
+        this.previousAngle = this.currentAngle;
+        this.angularVelocity = 0;
         
         this.init();
     }
 
     init() {
-        // Show mobile UI
         document.getElementById('hint-mobile').style.display = 'inline';
         document.getElementById('hint-desktop').style.display = 'none';
-        document.getElementById('mobile-controls').style.display = 'block';
+        document.getElementById('mobile-controls').style.display = 'flex';
 
-        // Initialize joystick
-        this.initVirtualJoystick();
+        this.calculateSizes();
+        this.initCircularControl();
     }
 
-    initVirtualJoystick() {
-        // Get joystick elements
-        this.joystickBase = document.querySelector('.joystick-base');
-        this.joystickKnob = document.querySelector('.joystick-knob');
+    calculateSizes() {
+        const screenWidth = window.innerWidth;
+        this.outerDiameter = screenWidth - (this.safetyPadding * 2);
+        const thumbPadding = 5;
+        this.innerDiameter = this.outerDiameter - 2 * (this.thumbSize + thumbPadding);
+        this.radiusX = (this.outerDiameter / 2) - (this.thumbSize / 2) - thumbPadding;
+        this.radiusY = this.radiusX;
+    }
+
+    initCircularControl() {
+        this.controlContainer = document.getElementById('circular-control-container');
+        this.controlRing = document.querySelector('.control-ring');
+        this.controlRingInner = document.querySelector('.control-ring-inner');
+        this.controlThumb = document.querySelector('.control-thumb');
+        this.directionIndicator = document.querySelector('.direction-indicator');
         
-        if (!this.joystickBase || !this.joystickKnob) {
-            console.error('Joystick elements not found!');
+        if (!this.controlContainer || !this.controlRing || !this.controlThumb) {
+            console.error('Circular control elements not found!');
             return;
         }
 
-        // Calculate center position
-        this.updateJoystickCenter();
-        window.addEventListener('resize', () => this.updateJoystickCenter());
+        this.applyDynamicSizes();
+        this.updateControlCenter();
+        
+        window.addEventListener('resize', () => {
+            this.calculateSizes();
+            this.applyDynamicSizes();
+            this.updateControlCenter();
+            this.updateThumbPosition(this.currentAngle);
+        });
+        
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                this.calculateSizes();
+                this.applyDynamicSizes();
+                this.updateControlCenter();
+                this.updateThumbPosition(this.currentAngle);
+            }, 100);
+        });
 
-        // Touch events on the knob
-        this.joystickKnob.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.onJoystickStart(e);
+        this.updateThumbPosition(this.currentAngle);
+
+        this.controlContainer.addEventListener('touchstart', (e) => {
+            this.onControlStart(e);
         }, { passive: false });
 
-        // Touch move - listen on document
         document.addEventListener('touchmove', (e) => {
-            if (this.isActive) {
-                e.preventDefault();
-                this.onJoystickMove(e);
+            if (this.isActive && this.activeTouch !== null) {
+                this.onControlMove(e);
             }
         }, { passive: false });
 
-        // Touch end - listen on document
-        document.addEventListener('touchend', (e) => {
-            if (this.isActive) {
-                this.onJoystickEnd(e);
-            }
-        }, { passive: false });
-
-        document.addEventListener('touchcancel', (e) => {
-            if (this.isActive) {
-                this.onJoystickEnd(e);
-            }
-        }, { passive: false });
+        document.addEventListener('touchend', (e) => this.onControlEnd(e), { passive: false });
+        document.addEventListener('touchcancel', (e) => this.onControlEnd(e), { passive: false });
     }
 
-    updateJoystickCenter() {
-        const rect = this.joystickBase.getBoundingClientRect();
+    applyDynamicSizes() {
+        this.controlContainer.style.width = `${this.outerDiameter}px`;
+        this.controlContainer.style.height = `${this.outerDiameter}px`;
+        this.controlRing.style.width = `${this.outerDiameter}px`;
+        this.controlRing.style.height = `${this.outerDiameter}px`;
+        
+        if (this.controlRingInner) {
+            this.controlRingInner.style.width = `${this.innerDiameter}px`;
+            this.controlRingInner.style.height = `${this.innerDiameter}px`;
+        }
+        
+        this.controlThumb.style.width = `${this.thumbSize}px`;
+        this.controlThumb.style.height = `${this.thumbSize}px`;
+        
+        const trackDiameter = this.radiusX * 2;
+        this.controlRing.style.setProperty('--track-diameter', `${trackDiameter}px`);
+    }
+
+    updateControlCenter() {
+        const rect = this.controlContainer.getBoundingClientRect();
         this.centerX = rect.left + rect.width / 2;
         this.centerY = rect.top + rect.height / 2;
     }
 
-    onJoystickStart(e) {
+    onControlStart(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+        
         this.isActive = true;
-        this.joystickKnob.classList.add('active');
-        this.updateJoystickCenter();
+        this.activeTouch = touch.identifier;
+        this.controlThumb.classList.add('active');
+        this.controlRing.classList.add('active');
+        this.updateControlCenter();
+        
+        this.updateAngleFromTouch(touch.clientX, touch.clientY);
+        this.updateThumbPosition(this.currentAngle);
     }
 
-    onJoystickMove(e) {
-        if (!this.isActive || e.touches.length === 0) return;
+    onControlMove(e) {
+        if (!this.isActive) return;
+        
+        let touch = null;
+        for (let t of e.touches) {
+            if (t.identifier === this.activeTouch) {
+                touch = t;
+                break;
+            }
+        }
+        
+        if (!touch) return;
+        
+        e.preventDefault();
+        
+        this.previousAngle = this.currentAngle;
+        this.updateAngleFromTouch(touch.clientX, touch.clientY);
+        this.angularVelocity = this.normalizeAngle(this.currentAngle - this.previousAngle);
+        this.updateThumbPosition(this.currentAngle);
+    }
 
-        const touch = e.touches[0];
+    updateAngleFromTouch(touchX, touchY) {
+        const deltaX = touchX - this.centerX;
+        const deltaY = touchY - this.centerY;
+        let angle = Math.atan2(deltaY, deltaX);
+        this.currentAngle = angle;
+        this.targetAngle = angle;
+    }
+
+    updateThumbPosition(angle) {
+        const thumbX = Math.cos(angle) * this.radiusX;
+        const thumbY = Math.sin(angle) * this.radiusY;
         
-        // Calculate offset from center
-        let deltaX = touch.clientX - this.centerX;
-        let deltaY = touch.clientY - this.centerY;
+        this.controlThumb.style.transform = 
+            `translate(calc(-50% + ${thumbX}px), calc(-50% + ${thumbY}px))`;
         
-        // Calculate distance and angle
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        const angle = Math.atan2(deltaY, deltaX);
-        
-        // Constrain to max distance
-        const maxDistance = CONFIG.MOBILE.JOYSTICK.MAX_DISTANCE;
-        const constrainedDistance = Math.min(distance, maxDistance);
-        
-        // Calculate constrained position
-        this.currentX = Math.cos(angle) * constrainedDistance;
-        this.currentY = Math.sin(angle) * constrainedDistance;
-        
-        // Update visual position
-        this.joystickKnob.style.transform = 
-            `translate(calc(-50% + ${this.currentX}px), calc(-50% + ${this.currentY}px))`;
-        
-        // Calculate normalized vector with dead zone
-        const deadZone = CONFIG.MOBILE.JOYSTICK.DEAD_ZONE * maxDistance;
-        if (distance > deadZone) {
-            this.vectorX = this.currentX / maxDistance;
-            this.vectorY = this.currentY / maxDistance;
-        } else {
-            this.vectorX = 0;
-            this.vectorY = 0;
+        if (this.directionIndicator) {
+            const indicatorAngle = angle + Math.PI / 2;
+            this.directionIndicator.style.transform = `rotate(${indicatorAngle}rad)`;
         }
     }
 
-    onJoystickEnd(e) {
-        this.isActive = false;
-        this.joystickKnob.classList.remove('active');
+    onControlEnd(e) {
+        let touchEnded = false;
+        for (let touch of e.changedTouches) {
+            if (touch.identifier === this.activeTouch) {
+                touchEnded = true;
+                break;
+            }
+        }
         
-        // Reset to center with animation
-        this.joystickKnob.style.transform = 'translate(-50%, -50%)';
-        this.currentX = 0;
-        this.currentY = 0;
-        this.vectorX = 0;
-        this.vectorY = 0;
+        if (!touchEnded) return;
+        
+        this.isActive = false;
+        this.activeTouch = null;
+        this.angularVelocity = 0;
+        this.controlThumb.classList.remove('active');
+        this.controlRing.classList.remove('active');
+        
+        if (this.returnToCenter) {
+            this.targetAngle = Math.PI / 2; // Return to bottom
+        }
+    }
+
+    normalizeAngle(angle) {
+        while (angle > Math.PI) angle -= Math.PI * 2;
+        while (angle < -Math.PI) angle += Math.PI * 2;
+        return angle;
+    }
+
+    lerpAngle(from, to, t) {
+        let diff = this.normalizeAngle(to - from);
+        return from + diff * t;
     }
 
     update(car) {
@@ -659,65 +1255,52 @@ export class MobileControls {
         let moving = false;
         let turning = false;
 
-        if (this.isActive && (Math.abs(this.vectorX) > 0 || Math.abs(this.vectorY) > 0)) {
-            const atBoundary = car.isAtBoundary();
+        if (this.isActive) {
+            // Apply engine force for acceleration
+            car.accelerate(1.0);
+            moving = true;
             
-            // Y-axis controls forward/backward (negative Y is up)
-            const forwardInput = -this.vectorY;
+            // Calculate steering input from joystick angle
+            // Reference position is BOTTOM (π/2)
+            // Map joystick angle to steering input: -1 (left/clockwise) to +1 (right/counter-clockwise)
             
-            // Determine if we should move forward
-            let shouldMoveForward = false;
-            let forwardIntensity = 0;
+            const bottomAngle = Math.PI / 2;
+            let angleFromBottom = this.normalizeAngle(this.currentAngle - bottomAngle);
             
-            if (forwardInput > 0.1) {
-                // Explicit forward push
-                shouldMoveForward = true;
-                forwardIntensity = forwardInput;
-            } else if (forwardInput < -0.1) {
-                // Explicit reverse
-                const reverseIntensity = Math.abs(forwardInput);
-                car.brake(reverseIntensity * 1.5);
-                moving = true;
-            } else if (Math.abs(this.vectorX) > 0.2) {
-                // RACING GAME BEHAVIOR: Auto-forward when steering
-                // If joystick is pushed left/right without up/down,
-                // automatically move forward to maintain momentum
-                shouldMoveForward = true;
-                forwardIntensity = Math.abs(this.vectorX); // Use turn intensity as speed
+            // REVERSED CONTROLS:
+            // Joystick moved left (negative angle from bottom) = positive steering (clockwise)
+            // Joystick moved right (positive angle from bottom) = negative steering (counter-clockwise)
+            // Full range at ±90° (±PI/2)
+            const steeringInput = Math.max(-1, Math.min(1, angleFromBottom / (Math.PI / 2)));
+            
+            // Apply continuous steering torque based on joystick position
+            car.applyContinuousSteering(steeringInput, 1.0);
+            
+            turning = Math.abs(steeringInput) > 0.1;
+            
+            // Calculate turn direction and intensity for visual tilt
+            const turnDirection = -steeringInput;
+            const turnIntensity = Math.abs(steeringInput);
+            car.updateTilt(turnDirection * turnIntensity);
+            
+        } else {
+            // When not actively steering, return joystick to center if configured
+            if (this.returnToCenter) {
+                this.currentAngle = this.lerpAngle(
+                    this.currentAngle, 
+                    this.targetAngle, 
+                    this.returnLerpSpeed
+                );
+                this.updateThumbPosition(this.currentAngle);
             }
             
-            // Apply forward movement
-            if (shouldMoveForward) {
-                if (!atBoundary || car.getVelocity().length() < 0.1) {
-                    car.accelerate(forwardIntensity);
-                    moving = true;
-                }
-            }
-            
-            // X-axis controls turning
-            const turnInput = this.vectorX;
-            
-            if (Math.abs(turnInput) > 0.1) {
-                const turnMultiplier = atBoundary ? 1.8 : 1.0;
-                const turnIntensity = Math.abs(turnInput) * turnMultiplier;
-                
-                if (turnInput > 0) {
-                    car.turnRight(turnIntensity);
-                } else {
-                    car.turnLeft(turnIntensity);
-                }
-                turning = true;
-            }
+            car.updateTilt(0);
         }
 
-        // Drift detection
+        // Update drift state based on speed and turning intensity
         const speed = car.getVelocity().length();
-        const drifting = this.isActive && speed > 0.5 && Math.abs(this.vectorX) > 0.6;
+        const drifting = speed > 0.5 && turning;
         car.updateDrift(drifting);
-        
-        // Tilt direction
-        const turnDirection = this.vectorX > 0 ? -1 : (this.vectorX < 0 ? 1 : 0);
-        car.updateTilt(turnDirection);
 
         return { moving, turning };
     }
@@ -733,7 +1316,10 @@ export function createControls(renderer) {
 }
 
 
+
 ```
+
+
 
 **effects.js**
 ```javascript

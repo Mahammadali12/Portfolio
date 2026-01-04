@@ -8,10 +8,10 @@ export const CONFIG = {
         MOMENT_OF_INERTIA: 1500,           // kg·m² (kept same - realistic for car dimensions)
         
         // Forces
-        ENGINE_FORCE: 30,                  // N (forward thrust) - scaled 100x down
+        ENGINE_FORCE: 15,                  // N (forward thrust) - scaled 100x down
         BRAKE_FORCE: 60,                   // N (braking force) - scaled 100x down
         REVERSE_FORCE: 15,                 // N (reverse thrust) - scaled 100x down
-        STEERING_FORCE: 20,                // N (lateral steering force) - scaled 100x down
+        STEERING_FORCE: 10,                // N (lateral steering force) - scaled 100x down
         
         // Resistance
         DRAG_COEFFICIENT: 0.4,             // Air resistance coefficient
