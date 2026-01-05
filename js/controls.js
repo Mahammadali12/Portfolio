@@ -9,7 +9,8 @@ export class DesktopControls {
             w: false,
             s: false,
             a: false,
-            d: false
+            d: false,
+            ' ': false  // SPACE for handbrake
         };
         
         this.init();
@@ -20,6 +21,7 @@ export class DesktopControls {
             const key = e.key.toLowerCase();
             if (this.keyStates.hasOwnProperty(key)) {
                 this.keyStates[key] = true;
+                e.preventDefault(); // Prevent page scroll on space
             }
         });
 
@@ -27,6 +29,7 @@ export class DesktopControls {
             const key = e.key.toLowerCase();
             if (this.keyStates.hasOwnProperty(key)) {
                 this.keyStates[key] = false;
+                e.preventDefault();
             }
         });
     }
@@ -37,31 +40,43 @@ export class DesktopControls {
         let moving = false;
         let turning = false;
 
-        // Apply engine force when W is pressed
-        if (this.keyStates.w) {
+        // Check if handbrake is active
+        const handbrakeActive = this.keyStates[' '];
+        
+        // Check if any movement input is active (W, S, or handbrake while moving)
+        const hasMovementInput = this.keyStates.w || this.keyStates.s;
+
+        // Apply engine force when W is pressed (DISABLED during handbrake)
+        if (this.keyStates.w && !handbrakeActive) {
             car.accelerate(1.0);
             moving = true;
         }
         
-        // Apply brake force when S is pressed
+        // Apply brake force when S is pressed (normal brake, not handbrake)
         if (this.keyStates.s) {
             car.brake(1.0);
             moving = true;
         }
 
-        // Apply steering torque for turning
+        // Apply handbrake if SPACE is held
+        if (handbrakeActive) {
+            car.applyHandbrake(1.0);
+            moving = true; // Handbrake is an "action" even though it slows down
+        }
+
+        // Apply steering torque for turning (pass movement input state)
         if (this.keyStates.a) {
-            car.turnLeft(1.0);
+            car.turnLeft(1.0, hasMovementInput);
             turning = true;
         }
         
         if (this.keyStates.d) {
-            car.turnRight(1.0);
+            car.turnRight(1.0, hasMovementInput);
             turning = true;
         }
 
-        // Update drift state
-        car.updateDrift(turning);
+        // Update drift state (handbrake + turning forces drift)
+        car.updateDrift(turning, handbrakeActive);
         
         // Update visual tilt based on turn direction
         const turnDirection = this.keyStates.a ? 1 : (this.keyStates.d ? -1 : 0);
