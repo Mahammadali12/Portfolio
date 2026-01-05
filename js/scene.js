@@ -212,8 +212,10 @@ export class SceneManager {
     }
 
     update() {
-        // Always update controls (mobile or desktop)
-        this.controls.update();
+        // Only update OrbitControls on desktop
+        if (!isMobile) {
+            this.controls.update();
+        }
     }
 
     render() {
