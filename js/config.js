@@ -11,7 +11,11 @@ export const CONFIG = {
         ENGINE_FORCE: 15,                  // N (forward thrust) - scaled 100x down
         BRAKE_FORCE: 60,                   // N (braking force) - scaled 100x down
         REVERSE_FORCE: 15,                 // N (reverse thrust) - scaled 100x down
+        
+        // Steering
         STEERING_FORCE: 10,                // N (lateral steering force) - scaled 100x down
+        MIN_STEERING_SPEED: 0.05,          // Minimum speed required for steering to work
+        HANDBRAKE_STEERING_MULTIPLIER: 0.25, // Steering effectiveness during handbrake (25%)
         
         // Resistance
         DRAG_COEFFICIENT: 0.4,             // Air resistance coefficient

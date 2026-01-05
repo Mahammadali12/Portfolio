@@ -36,7 +36,8 @@ export class Car {
         this.isAccelerating = false;
         this.isBraking = false;
         this.isTurning = false;
-        this.isReversing = false;          // NEW: track reverse state
+        this.isReversing = false;
+        this.isHandbraking = false;  // NEW: handbrake state
         
         // Weight transfer (for realistic feel)
         this.weightTransfer = { front: 0.5, rear: 0.5, left: 0.5, right: 0.5 };
@@ -299,12 +300,51 @@ export class Car {
     }
 
     /**
+     * Apply handbrake - locks rear wheels for drifting
+     * @param {number} intensity - 0 to 1 handbrake intensity
+     */
+    applyHandbrake(intensity = 1) {
+        const speed = this.getSpeed();
+        
+        // Handbrake only works when moving (no effect when stopped)
+        if (speed < 0.1) {
+            this.isHandbraking = false;
+            return;
+        }
+        
+        // Drastically reduce traction (simulate locked rear wheels)
+        this.currentTraction *= 0.3; // 70% traction loss
+        
+        // Apply moderate braking force (less than regular brake)
+        const handbrakeForce = CONFIG.PHYSICS.BRAKE_FORCE * 0.4 * intensity;
+        const brakeDirection = this.velocity.clone().normalize();
+        const brakingForce = brakeDirection.multiplyScalar(-handbrakeForce);
+        this.applyForce(brakingForce);
+        
+        // Reduce angular drag during handbrake (allows car to spin more freely)
+        // This is handled in integrateForces based on isHandbraking state
+        
+        // Mark state
+        this.isHandbraking = true;
+    }
+
+    /**
      * Apply steering torque to rotate the car
      * @param {number} direction - -1 (left) to 1 (right)
      * @param {number} intensity - 0 to 1 steering intensity
+     * @param {boolean} hasMovementInput - Whether W/S/accelerate/brake is being pressed
      */
-    applySteeringTorque(direction, intensity = 1) {
+    applySteeringTorque(direction, intensity = 1, hasMovementInput = false) {
         const speed = this.getSpeed();
+        const minSteeringSpeed = CONFIG.PHYSICS.MIN_STEERING_SPEED || 0.05;
+        
+        // OPTION C: Steering only works when moving OR when movement input is active
+        // This allows steering while accelerating from standstill
+        if (speed < minSteeringSpeed && !hasMovementInput) {
+            this.steeringAngle = direction * intensity;
+            this.isTurning = true;
+            return; // Don't apply any torque when stationary without movement input
+        }
 
         const speedFactor = Math.min(speed / 1.5, 1);
         const lowSpeedSteering = 1 - speedFactor;
@@ -313,6 +353,11 @@ export class Car {
         let steeringForce = CONFIG.PHYSICS.STEERING_FORCE * intensity;
         if (isMobile) {
             steeringForce *= CONFIG.MOBILE.STEERING_FORCE_MULTIPLIER;
+        }
+        
+        // OPTION B: Reduce steering during handbrake (25% effectiveness)
+        if (this.isHandbraking) {
+            steeringForce *= CONFIG.PHYSICS.HANDBRAKE_STEERING_MULTIPLIER || 0.25;
         }
 
         // IMPORTANT:
@@ -352,13 +397,15 @@ export class Car {
 
     /**
      * Legacy turn methods for desktop controls compatibility
+     * @param {number} intensity - 0 to 1 steering intensity
+     * @param {boolean} hasMovementInput - Whether movement keys are pressed
      */
-    turnLeft(intensity = 1) {
-        this.applySteeringTorque(1, intensity);
+    turnLeft(intensity = 1, hasMovementInput = false) {
+        this.applySteeringTorque(1, intensity, hasMovementInput);
     }
 
-    turnRight(intensity = 1) {
-        this.applySteeringTorque(-1, intensity);
+    turnRight(intensity = 1, hasMovementInput = false) {
+        this.applySteeringTorque(-1, intensity, hasMovementInput);
     }
 
     /**
@@ -518,11 +565,14 @@ export class Car {
         // Add angular acceleration to angular velocity
         this.angularVelocity += this.angularAcceleration;
         
-        // Apply angular drag
-        this.angularVelocity *= CONFIG.PHYSICS.ANGULAR_DRAG;
+        // Apply angular drag (reduced during handbrake for better spinning)
+        const angularDrag = this.isHandbraking ? 0.98 : CONFIG.PHYSICS.ANGULAR_DRAG;
+        this.angularVelocity *= angularDrag;
         
-        // Clamp angular velocity
-        const maxAngular = CONFIG.PHYSICS.MAX_ANGULAR_VELOCITY;
+        // Clamp angular velocity (higher limit during handbrake)
+        const maxAngular = this.isHandbraking 
+            ? CONFIG.PHYSICS.MAX_ANGULAR_VELOCITY * 1.5 
+            : CONFIG.PHYSICS.MAX_ANGULAR_VELOCITY;
         this.angularVelocity = Math.max(-maxAngular, Math.min(maxAngular, this.angularVelocity));
     }
 
@@ -599,11 +649,19 @@ export class Car {
     /**
      * Update drift state based on current physics
      * @param {boolean} isTurning - Whether player is actively steering
+     * @param {boolean} handbrakeActive - Whether handbrake is held (desktop only)
      */
-    updateDrift(isTurning) {
+    updateDrift(isTurning, handbrakeActive = false) {
         const speed = this.getSpeed();
         const driftThreshold = CONFIG.PHYSICS.DRIFT_THRESHOLD;
         
+        // PRIORITY 1: Manual handbrake drift (Option A)
+        if (handbrakeActive && isTurning && speed > 0.3) {
+            this.isDrifting = true;
+            return;
+        }
+        
+        // PRIORITY 2: Automatic drift detection (kept as fallback)
         // Calculate angle between velocity and forward direction
         if (speed > 0.1) {
             const forward = this.getForwardDirection();
@@ -618,8 +676,8 @@ export class Car {
             
             if (shouldDrift && !this.isDrifting) {
                 this.isDrifting = true;
-            } else if (!isTurning && this.isDrifting) {
-                // Exit drift gradually when not turning
+            } else if (!isTurning && !handbrakeActive && this.isDrifting) {
+                // Exit drift gradually when not turning and handbrake released
                 this.isDrifting = false;
             }
         } else {
@@ -637,7 +695,8 @@ export class Car {
         
         if (this.isDrifting) {
             // More dramatic tilt when drifting
-            this.driftAngle = turnDirection * 0.4 * speedFactor;
+            const driftIntensity = this.isHandbraking ? 0.5 : 0.4; // Extra tilt for handbrake drift
+            this.driftAngle = turnDirection * driftIntensity * speedFactor;
         } else {
             // Subtle tilt based on lateral g-force
             this.driftAngle = turnDirection * 0.15 * speedFactor;
@@ -702,6 +761,7 @@ export class Car {
         this.isBraking = false;
         this.isTurning = false;
         this.isReversing = false;
+        this.isHandbraking = false;  // Reset handbrake state
         
         return moved;
     }
