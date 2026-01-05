@@ -9,7 +9,7 @@ export class UIManager {
     constructor(scene, camera) {
         this.scene = scene;
         this.camera = camera;
-        this.buildingManager = new BuildingManager(scene);
+        // this.buildingManager = new BuildingManager(scene);
         
         this.sectionMeshes = [];
         this.sectionLabels = [];
@@ -41,11 +41,11 @@ export class UIManager {
             this.createBillboardLabel(config);
             
             // Create building
-            this.buildingManager.createBuilding(
-                config.buildingType,
-                config.color,
-                config.position
-            );
+            // this.buildingManager.createBuilding(
+            //     config.buildingType,
+            //     config.color,
+            //     config.position
+            // );
         });
     }
 

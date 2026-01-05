@@ -49,6 +49,7 @@ export const CONFIG = {
         INITIAL_POSITION: { x: 0, y: 80, z: 80 },
         MOBILE_OFFSET: { x: 45, y: 60, z: 45 },
         MOBILE_LERP_SPEED: 0.05,
+        DESKTOP_FOLLOW_LERP: 0.1,          // NEW: Smooth following on desktop
         ORBIT_MIN_DISTANCE: 30,
         ORBIT_MAX_DISTANCE: 150,
         ORBIT_MIN_POLAR_ANGLE: Math.PI / 6,

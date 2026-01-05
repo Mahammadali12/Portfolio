@@ -70,7 +70,7 @@ export class SceneManager {
         this.controls.maxPolarAngle = CONFIG.CAMERA.ORBIT_MAX_POLAR_ANGLE;
         this.controls.minPolarAngle = CONFIG.CAMERA.ORBIT_MIN_POLAR_ANGLE;
         this.controls.target.set(0, 0, 0);
-        this.controls.enabled = !isMobile;
+        this.controls.enabled = !isMobile; // Keep enabled for desktop
         this.controls.update();
     }
 
@@ -180,22 +180,29 @@ export class SceneManager {
     }
 
     updateCameraFollow(carPosition, carRotation) {
-        if (!isMobile) return;
+        if (!carPosition) return;
 
-        const offset = CONFIG.CAMERA.MOBILE_OFFSET;
-        const targetPosition = new THREE.Vector3();
-        targetPosition.x = carPosition.x + offset.x;
-        targetPosition.y = offset.y;
-        targetPosition.z = carPosition.z + offset.z;
-        
-        this.camera.position.lerp(targetPosition, CONFIG.CAMERA.MOBILE_LERP_SPEED);
-        
-        const lookAtPoint = new THREE.Vector3(carPosition.x, 0, carPosition.z);
-        const currentTarget = new THREE.Vector3(0, 0, -1);
-        currentTarget.applyQuaternion(this.camera.quaternion);
-        currentTarget.multiplyScalar(50).add(this.camera.position);
-        currentTarget.lerp(lookAtPoint, CONFIG.CAMERA.MOBILE_LERP_SPEED * 2);
-        this.camera.lookAt(currentTarget);
+        if (isMobile) {
+            // Mobile: Fixed camera behind car
+            const offset = CONFIG.CAMERA.MOBILE_OFFSET;
+            const targetPosition = new THREE.Vector3();
+            targetPosition.x = carPosition.x + offset.x;
+            targetPosition.y = offset.y;
+            targetPosition.z = carPosition.z + offset.z;
+            
+            this.camera.position.lerp(targetPosition, CONFIG.CAMERA.MOBILE_LERP_SPEED);
+            
+            const lookAtPoint = new THREE.Vector3(carPosition.x, 0, carPosition.z);
+            const currentTarget = new THREE.Vector3(0, 0, -1);
+            currentTarget.applyQuaternion(this.camera.quaternion);
+            currentTarget.multiplyScalar(50).add(this.camera.position);
+            currentTarget.lerp(lookAtPoint, CONFIG.CAMERA.MOBILE_LERP_SPEED * 2);
+            this.camera.lookAt(currentTarget);
+        } else {
+            // Desktop: OrbitControls target follows car (hybrid mode)
+            const targetPosition = new THREE.Vector3(carPosition.x, 0, carPosition.z);
+            this.controls.target.lerp(targetPosition, CONFIG.CAMERA.DESKTOP_FOLLOW_LERP || 0.1);
+        }
     }
 
     handleResize() {
@@ -205,9 +212,8 @@ export class SceneManager {
     }
 
     update() {
-        if (!isMobile) {
-            this.controls.update();
-        }
+        // Always update controls (mobile or desktop)
+        this.controls.update();
     }
 
     render() {

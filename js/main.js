@@ -74,25 +74,21 @@ class Application {
         // Update car physics
         const carMoved = this.car.update();
         
-        // Update camera on mobile
-        if (isMobile) {
-            const carPos = this.car.getPosition();
-            const carRot = this.car.getRotation();
-            if (carPos && carRot) {
-                this.sceneManager.updateCameraFollow(carPos, carRot);
-            }
+        // Update camera to follow car (mobile AND desktop)
+        const carPos = this.car.getPosition();
+        const carRot = this.car.getRotation();
+        if (carPos && carRot) {
+            this.sceneManager.updateCameraFollow(carPos, carRot);
         }
         
         // Create effects when moving
         const velocity = this.car.getVelocity();
         if (velocity.length() > 0.1) {
-            const carPos = this.car.getPosition();
             this.dustSystem.create(carPos, velocity);
         }
         
         // Create drift trails
         if (this.car.isDrifting && Math.random() > 0.5) {
-            const carPos = this.car.getPosition();
             this.driftSystem.create(carPos);
         }
         
@@ -101,7 +97,6 @@ class Application {
         this.driftSystem.update();
         
         // Update UI
-        const carPos = this.car.getPosition();
         if (carPos) {
             this.uiManager.update(carPos);
         }
