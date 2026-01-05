@@ -32,6 +32,9 @@ export const sectionsData = {
             <div class="project-item" style="margin-top: 20px;">
                 <p><strong>"Engineering elegant solutions to complex problems."</strong></p>
             </div>
+            <a href="assets/resume.pdf" download="Mahammadali_Zamani_Resume.pdf" class="download-resume-btn" role="button" aria-label="Download resume as PDF">
+                📥 Download Resume
+            </a>
         `
     },
     
