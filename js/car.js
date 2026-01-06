@@ -5,9 +5,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CONFIG, isMobile } from './config.js';
 
 export class Car {
-    constructor(scene, camera) {
+    constructor(scene, camera, sceneManager = null) {
         this.scene = scene;
         this.camera = camera;
+        this.sceneManager = sceneManager; // Reference to SceneManager for camera shake
         this.mesh = null;
         
         // === MOMENTUM-BASED PHYSICS PROPERTIES ===
@@ -613,9 +614,13 @@ export class Car {
         const newZ = this.mesh.position.z + this.velocity.z;
         
         let collided = false;
+        let collisionIntensity = 0;
         
         // Check X boundaries
         if (newX <= minX || newX >= maxX) {
+            // Calculate collision intensity based on velocity component
+            collisionIntensity = Math.max(collisionIntensity, Math.abs(this.velocity.x) / CONFIG.PHYSICS.MAX_SPEED);
+            
             this.velocity.x *= CONFIG.PHYSICS.BOUNCE_DAMPING;
             this.velocity.z *= CONFIG.PHYSICS.COLLISION_FRICTION;
             this.angularVelocity *= 0.5; // Reduce spin on collision
@@ -624,10 +629,18 @@ export class Car {
         
         // Check Z boundaries
         if (newZ <= minZ || newZ >= maxZ) {
+            // Calculate collision intensity based on velocity component
+            collisionIntensity = Math.max(collisionIntensity, Math.abs(this.velocity.z) / CONFIG.PHYSICS.MAX_SPEED);
+            
             this.velocity.z *= CONFIG.PHYSICS.BOUNCE_DAMPING;
             this.velocity.x *= CONFIG.PHYSICS.COLLISION_FRICTION;
             this.angularVelocity *= 0.5;
             collided = true;
+        }
+        
+        // Trigger camera shake on collision
+        if (collided && this.sceneManager && collisionIntensity > 0.1) {
+            this.sceneManager.shakeCamera(collisionIntensity);
         }
         
         // Apply position with boundary clamping

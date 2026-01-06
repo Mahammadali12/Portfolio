@@ -3,12 +3,15 @@
 export const sectionsData = {
     profile: {
         content: `
-            <h3 class="section-title">Mahammadali Zamani</h3>
+            <h3 class="section-title">Mahammadali Zamanli</h3>
             <img src="assets/profile.jpg" alt="Mahammadali Zamani" class="profile-photo" onerror="this.style.display='none'">
             <div class="project-item">
-                <h4>Computer Science Student & Software Engineer</h4>
-                <p>Passionate developer specializing in backend systems, physics simulations, and high-performance computing.</p>
+                <h4>Software Engineer</h4>
+                <p>developer specializing in backend systems, physics simulations, and high-performance computing.</p>
             </div>
+            <a href="assets/resume.pdf" download="Mahammadali_Zamani_Resume.pdf" class="download-resume-btn" role="button" aria-label="Download resume as PDF">
+                📥 Download Resume
+            </a>
             <div class="contact-info">
                 <div class="contact-icon">📱</div>
                 <div class="contact-detail">+994-55-397-75-00</div>
@@ -29,12 +32,7 @@ export const sectionsData = {
                 <div class="contact-icon">📍</div>
                 <div class="contact-detail">Baku, Azerbaijan</div>
             </div>
-            <div class="project-item" style="margin-top: 20px;">
-                <p><strong>"Engineering elegant solutions to complex problems."</strong></p>
-            </div>
-            <a href="assets/resume.pdf" download="Mahammadali_Zamani_Resume.pdf" class="download-resume-btn" role="button" aria-label="Download resume as PDF">
-                📥 Download Resume
-            </a>
+            
         `
     },
     

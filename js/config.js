@@ -64,7 +64,17 @@ export const CONFIG = {
         SECTION_RETURN_DURATION: 600,          // ms for camera to return to follow mode
         SECTION_VIEW_HEIGHT: 25,               // Camera height when viewing section
         SECTION_VIEW_DISTANCE: 35,             // Camera distance from section center
-        SECTION_VIEW_ANGLE: Math.PI / 4        // Camera angle offset
+        SECTION_VIEW_ANGLE: Math.PI / 4,     // Camera angle offset
+        // Camera shake settings
+        SHAKE: {
+            MAX_INTENSITY: 1.0,
+            MAX_OFFSET: 20.8,              // Desktop max offset in units
+            MOBILE_MAX_OFFSET: 10.4,       // Mobile max offset (more subtle)
+            DECAY_RATE: 0.88,             // How fast shake fades per frame
+            MOBILE_DECAY_RATE: 0.92,      // Faster decay on mobile
+            MIN_THRESHOLD: 0.01,          // Stop shaking below this intensity
+            ROTATION_FACTOR: 0.2         // Slight Z-rotation for extra effect
+        }
     },
 
     // Scene

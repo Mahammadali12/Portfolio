@@ -24,8 +24,12 @@ class Application {
         // Initialize scene
         this.sceneManager = new SceneManager();
         
-        // Initialize car
-        this.car = new Car(this.sceneManager.scene, this.sceneManager.camera);
+        // Initialize car - pass sceneManager for camera shake
+        this.car = new Car(
+            this.sceneManager.scene, 
+            this.sceneManager.camera,
+            this.sceneManager
+        );
         
         // Initialize controls
         this.controls = createControls(this.sceneManager.renderer);
@@ -99,6 +103,11 @@ class Application {
         const carRot = this.car.getRotation();
         if (carPos && carRot && !this.uiManager.isCameraTransitioning && !carLocked) {
             this.sceneManager.updateCameraFollow(carPos, carRot);
+        }
+        
+        // Update camera shake (only when panel is not open and not transitioning)
+        if (!carLocked && !this.uiManager.isCameraTransitioning) {
+            this.sceneManager.updateCameraShake();
         }
         
         // Create effects when moving (only if not locked)
