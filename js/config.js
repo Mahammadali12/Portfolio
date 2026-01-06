@@ -58,7 +58,23 @@ export const CONFIG = {
         ORBIT_MAX_DISTANCE: 150,
         ORBIT_MIN_POLAR_ANGLE: Math.PI / 6,
         ORBIT_MAX_POLAR_ANGLE: Math.PI / 2.2,
-        ORBIT_DAMPING_FACTOR: 0.05
+        ORBIT_DAMPING_FACTOR: 0.05,
+        // Section transition settings
+        SECTION_TRANSITION_DURATION: 800,      // ms for camera to move to section view
+        SECTION_RETURN_DURATION: 600,          // ms for camera to return to follow mode
+        SECTION_VIEW_HEIGHT: 25,               // Camera height when viewing section
+        SECTION_VIEW_DISTANCE: 35,             // Camera distance from section center
+        SECTION_VIEW_ANGLE: Math.PI / 4,     // Camera angle offset
+        // Camera shake settings
+        SHAKE: {
+            MAX_INTENSITY: 1.0,
+            MAX_OFFSET: 20.8,              // Desktop max offset in units
+            MOBILE_MAX_OFFSET: 10.4,       // Mobile max offset (more subtle)
+            DECAY_RATE: 0.88,             // How fast shake fades per frame
+            MOBILE_DECAY_RATE: 0.92,      // Faster decay on mobile
+            MIN_THRESHOLD: 0.01,          // Stop shaking below this intensity
+            ROTATION_FACTOR: 0.2         // Slight Z-rotation for extra effect
+        }
     },
 
     // Scene
@@ -184,7 +200,10 @@ export const CONFIG = {
         PANEL_CONTENT_ANIMATION_MS: 800,
         PANEL_FADE_OUT_DELAY_MS: 200,
         PANEL_CLEAR_DELAY_MS: 500,
-        LOADING_DELAY_MS: 1000
+        LOADING_DELAY_MS: 1000,
+        // Panel fly-in animation
+        PANEL_FLY_DURATION: 500,               // ms for panel to fly from world to UI position
+        PANEL_FLY_EASING: 'easeOutCubic'       // Easing function name
     }
 };
 

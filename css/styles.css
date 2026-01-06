@@ -52,11 +52,10 @@ canvas {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-/* ==================== DOWNLOAD RESUME BUTTON ==================== */
-#download-resume-btn {
-    position: fixed;
-    top: 20px;
-    right: 20px;
+/* ==================== DOWNLOAD BUTTON (IN PANEL) ==================== */
+.download-resume-btn {
+    display: inline-block;
+    width: 100%;
     padding: 12px 24px;
     background: linear-gradient(135deg, #ff7251 0%, #ff5251 100%);
     color: #ffedbf;
@@ -65,47 +64,27 @@ canvas {
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    z-index: 10000;
     box-shadow: 0 4px 20px rgba(255, 114, 81, 0.4),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2);
     transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    text-decoration: none;
+    text-align: center;
+    margin-top: 15px;
 }
 
-#download-resume-btn:hover {
+.download-resume-btn:hover {
     background: linear-gradient(135deg, #ff5251 0%, #ff3251 100%);
     transform: translateY(-2px);
     box-shadow: 0 6px 25px rgba(255, 114, 81, 0.6),
                 inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    color: #ffedbf !important;
+    border-bottom: none !important;
 }
 
-#download-resume-btn:active {
+.download-resume-btn:active {
     transform: translateY(0);
     box-shadow: 0 2px 10px rgba(255, 114, 81, 0.4),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-/* Download animation */
-#download-resume-btn.downloading {
-    background: linear-gradient(135deg, #ffcd74 0%, #ffca7b 100%);
-    pointer-events: none;
-}
-
-#download-resume-btn.downloading::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(155, 41, 72, 0.3);
-    border-radius: 50%;
-    border-top-color: #9b2948;
-    animation: spin 0.8s linear infinite;
 }
 
 /* ==================== LOADING SCREEN ==================== */
@@ -139,11 +118,56 @@ canvas {
     to { transform: rotate(360deg); }
 }
 
+/* ==================== INTERACTION INDICATOR ==================== */
+#interaction-indicator {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffedbf;
+    background: rgba(155, 41, 72, 0.95);
+    padding: 15px 30px;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 205, 116, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                0 0 20px rgba(255, 205, 116, 0.3);
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    z-index: 200;
+    animation: indicatorPulse 1.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+#interaction-indicator strong {
+    color: #ffcd74;
+    font-size: 22px;
+    padding: 2px 8px;
+    background: rgba(255, 205, 116, 0.2);
+    border-radius: 6px;
+    margin: 0 4px;
+}
+
+@keyframes indicatorPulse {
+    0%, 100% {
+        transform: translateX(-50%) scale(1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                    0 0 20px rgba(255, 205, 116, 0.3);
+    }
+    50% {
+        transform: translateX(-50%) scale(1.05);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                    0 0 40px rgba(255, 205, 116, 0.5);
+    }
+}
+
 /* ==================== SECTION INFO PANEL ==================== */
 #section-info {
     position: fixed;
     top: 20px;
     right: -400px;
+    left: auto; /* Ensure left is auto by default */
     width: 350px;
     color: #ffedbf;
     background: rgba(155, 41, 72, 0.98);
@@ -156,14 +180,24 @@ canvas {
     backdrop-filter: blur(10px);
     border: 2px solid rgba(255, 237, 191, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    transition: right 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: none; /* Disable CSS transition, using JS animation */
     opacity: 1;
     pointer-events: auto;
+    transform: none; /* Ensure no transform by default */
 }
 
-#section-info.show,
 #section-info.panel-show {
     right: 20px;
+    left: auto; /* Ensure left is auto when showing */
+    top: 20px;
+    transform: none;
+    opacity: 1;
+}
+
+/* Panel fly-in animation state */
+#section-info.panel-flying {
+    transition: none;
+    pointer-events: none;
 }
 
 #section-content {
@@ -185,6 +219,10 @@ canvas {
 .section-content-animate > *:nth-child(4) { animation-delay: 0.4s; }
 .section-content-animate > *:nth-child(5) { animation-delay: 0.5s; }
 .section-content-animate > *:nth-child(6) { animation-delay: 0.6s; }
+.section-content-animate > *:nth-child(7) { animation-delay: 0.7s; }
+.section-content-animate > *:nth-child(8) { animation-delay: 0.8s; }
+.section-content-animate > *:nth-child(9) { animation-delay: 0.9s; }
+.section-content-animate > *:nth-child(10) { animation-delay: 1.0s; }
 
 @keyframes fadeInUp {
     from {
@@ -387,18 +425,16 @@ canvas {
     display: none;
     justify-content: center;
     align-items: flex-end;
-    padding-bottom: 1px; /* REDUCED from 20px to bring control closer to bottom */
+    padding-bottom: 1px;
 }
 
 #circular-control-container {
-    /* Width and height set dynamically via JS */
     position: relative;
     pointer-events: auto;
     touch-action: none;
 }
 
 .control-ring {
-    /* Width and height set dynamically via JS */
     width: 100%;
     height: 100%;
     border-radius: 50%;
@@ -407,7 +443,6 @@ canvas {
     border: 1px solid rgba(255, 237, 191, 0.2);
     box-shadow: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    /* Scale down visually while keeping hit area */
     transform: scale(0.7);
 }
 
@@ -416,7 +451,6 @@ canvas {
     box-shadow: none;
 }
 
-/* Track path indicator - the circular track the thumb follows */
 .control-ring::after {
     content: '';
     position: absolute;
@@ -437,7 +471,6 @@ canvas {
 .control-ring-inner {
     position: absolute;
     display: none;
-    /* Width and height set dynamically via JS */
     border-radius: 50%;
     top: 50%;
     left: 50%;
@@ -449,7 +482,6 @@ canvas {
 }
 
 .control-thumb {
-    /* Width and height set dynamically via JS, but defaults here */
     width: 55px;
     height: 55px;
     background: transparent;
@@ -459,7 +491,6 @@ canvas {
     position: absolute;
     top: 50%;
     left: 50%;
-    /* Scale down thumb visually - adjust transform-origin to maintain circular path */
     transform: translate(-50%, -50%) scale(0.7);
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
     cursor: grab;
@@ -489,7 +520,6 @@ canvas {
                 0 0 80px rgba(255, 205, 116, 0.3);
 }
 
-/* Direction indicator - hidden by default, shows current direction */
 .direction-indicator {
     position: absolute;
     width: 100%;
@@ -499,13 +529,16 @@ canvas {
     pointer-events: none;
 }
 
-/* Remove the static arrow on the ring since control is now full-screen */
 .control-ring::before {
     display: none;
 }
 
 /* ==================== MOBILE RESPONSIVE ==================== */
 @media (max-width: 768px) {
+    #interaction-indicator {
+        display: none !important; /* Hide on mobile, use button instead */
+    }
+
     #section-info {
         width: 90%;
         max-width: 350px;
@@ -550,15 +583,13 @@ canvas {
         font-size: 20px;
     }
 
-    #download-resume-btn {
-        top: 10px;
-        right: 10px;
-        padding: 10px 16px;
+    .download-resume-btn {
         font-size: 14px;
+        padding: 10px 20px;
     }
 
     #mobile-controls {
-        padding-bottom: 5px; /* REDUCED from 15px */
+        padding-bottom: 5px;
     }
 }
 
@@ -571,7 +602,7 @@ canvas {
     }
 
     #mobile-controls {
-        padding-bottom: 0px; /* REDUCED from 10px - touch the bottom on small screens */
+        padding-bottom: 0px;
     }
     
     .control-ring {

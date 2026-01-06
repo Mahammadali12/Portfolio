@@ -15,6 +15,7 @@ class Application {
         this.dustSystem = null;
         this.driftSystem = null;
         this.uiManager = null;
+        this.lastFrameTime = performance.now();
         
         this.init();
     }
@@ -23,8 +24,12 @@ class Application {
         // Initialize scene
         this.sceneManager = new SceneManager();
         
-        // Initialize car
-        this.car = new Car(this.sceneManager.scene, this.sceneManager.camera);
+        // Initialize car - pass sceneManager for camera shake
+        this.car = new Car(
+            this.sceneManager.scene, 
+            this.sceneManager.camera,
+            this.sceneManager
+        );
         
         // Initialize controls
         this.controls = createControls(this.sceneManager.renderer);
@@ -33,8 +38,12 @@ class Application {
         this.dustSystem = new DustParticleSystem(this.sceneManager.scene);
         this.driftSystem = new DriftTrailSystem(this.sceneManager.scene);
         
-        // Initialize UI
-        this.uiManager = new UIManager(this.sceneManager.scene, this.sceneManager.camera);
+        // Initialize UI - pass sceneManager for camera control
+        this.uiManager = new UIManager(
+            this.sceneManager.scene, 
+            this.sceneManager.camera,
+            this.sceneManager
+        );
         
         // Setup event listeners
         this.setupEventListeners();
@@ -63,46 +72,70 @@ class Application {
     animate() {
         requestAnimationFrame(() => this.animate());
         
+        // Calculate delta time
+        const currentTime = performance.now();
+        const deltaTime = currentTime - this.lastFrameTime;
+        this.lastFrameTime = currentTime;
+        
         if (!this.car.isLoaded()) {
             this.sceneManager.render();
             return;
         }
 
-        // Update controls
-        const { moving, turning } = this.controls.update(this.car);
+        // Check if car is locked (panel is open)
+        const carLocked = this.uiManager.isCarLocked();
         
-        // Update car physics
+        let moving = false;
+        let turning = false;
+        
+        // Only update controls if car is not locked
+        if (!carLocked) {
+            const controlResult = this.controls.update(this.car);
+            moving = controlResult.moving;
+            turning = controlResult.turning;
+        }
+        
+        // Update car physics (always, to handle deceleration even when locked)
         const carMoved = this.car.update();
         
-        // Update camera to follow car (mobile AND desktop)
+        // Update camera - only follow car if not transitioning
         const carPos = this.car.getPosition();
         const carRot = this.car.getRotation();
-        if (carPos && carRot) {
+        if (carPos && carRot && !this.uiManager.isCameraTransitioning && !carLocked) {
             this.sceneManager.updateCameraFollow(carPos, carRot);
         }
         
-        // Create effects when moving
-        const velocity = this.car.getVelocity();
-        if (velocity.length() > 0.1) {
-            this.dustSystem.create(carPos, velocity);
+        // Update camera shake (only when panel is not open and not transitioning)
+        if (!carLocked && !this.uiManager.isCameraTransitioning) {
+            this.sceneManager.updateCameraShake();
         }
         
-        // Create drift trails
-        if (this.car.isDrifting && Math.random() > 0.5) {
-            this.driftSystem.create(carPos);
+        // Create effects when moving (only if not locked)
+        if (!carLocked) {
+            const velocity = this.car.getVelocity();
+            if (velocity.length() > 0.1) {
+                this.dustSystem.create(carPos, velocity);
+            }
+            
+            if (this.car.isDrifting && Math.random() > 0.5) {
+                this.driftSystem.create(carPos);
+            }
         }
         
         // Update effects
         this.dustSystem.update();
         this.driftSystem.update();
         
-        // Update UI
+        // Update UI with delta time
         if (carPos) {
-            this.uiManager.update(carPos);
+            this.uiManager.update(carPos, deltaTime);
         }
         
-        // Update scene
-        this.sceneManager.update();
+        // Update scene (only if not camera transitioning)
+        if (!this.uiManager.isCameraTransitioning) {
+            this.sceneManager.update();
+        }
+        
         this.sceneManager.render();
     }
 }

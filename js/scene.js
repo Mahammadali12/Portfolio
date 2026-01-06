@@ -11,6 +11,12 @@ export class SceneManager {
         this.renderer = null;
         this.controls = null;
         
+        // Camera shake properties
+        this.isShaking = false;
+        this.shakeIntensity = 0;
+        this.shakeOffset = new THREE.Vector3(0, 0, 0);
+        this.shakeRotation = 0;
+        
         this.initCamera();
         this.initRenderer();
         this.initControls();
@@ -205,15 +211,88 @@ export class SceneManager {
         }
     }
 
+    /**
+     * Trigger camera shake effect
+     * @param {number} intensity - Shake intensity from 0 to 1 (based on collision velocity)
+     */
+    shakeCamera(intensity = 1.0) {
+        const maxIntensity = CONFIG.CAMERA.SHAKE.MAX_INTENSITY;
+        
+        // Accumulate shake intensity (for rapid collisions) but cap it
+        this.shakeIntensity = Math.min(
+            this.shakeIntensity + intensity * 0.7,
+            maxIntensity
+        );
+        
+        this.isShaking = true;
+    }
+
+    /**
+     * Update camera shake - called every frame
+     * Applies random offset that decays over time
+     */
+    updateCameraShake() {
+        if (!this.isShaking) return;
+        
+        const shakeConfig = CONFIG.CAMERA.SHAKE;
+        const maxOffset = isMobile ? shakeConfig.MOBILE_MAX_OFFSET : shakeConfig.MAX_OFFSET;
+        const decayRate = isMobile ? shakeConfig.MOBILE_DECAY_RATE : shakeConfig.DECAY_RATE;
+        
+        // Generate random offset based on current intensity
+        const offsetMagnitude = this.shakeIntensity * maxOffset;
+        this.shakeOffset.set(
+            (Math.random() - 0.5) * 2 * offsetMagnitude,
+            (Math.random() - 0.5) * 2 * offsetMagnitude * 0.5, // Less vertical shake
+            (Math.random() - 0.5) * 2 * offsetMagnitude * 0.3  // Even less depth shake
+        );
+        
+        // Optional slight rotation
+        this.shakeRotation = (Math.random() - 0.5) * 2 * this.shakeIntensity * shakeConfig.ROTATION_FACTOR;
+        
+        // Apply shake offset to camera position
+        this.camera.position.add(this.shakeOffset);
+        console.log(this.shakeOffset)
+        // Apply slight rotation for extra effect
+        this.camera.rotation.z += this.shakeRotation;
+        
+        // Decay intensity
+        this.shakeIntensity *= decayRate;
+        
+        // Stop shaking when below threshold
+        if (this.shakeIntensity < shakeConfig.MIN_THRESHOLD) {
+            this.shakeIntensity = 0;
+            this.isShaking = false;
+            this.shakeOffset.set(0, 0, 0);
+            this.shakeRotation = 0;
+            
+            // Reset any accumulated rotation from shake
+            // Note: This works because shake rotation is very small
+        }
+    }
+
+    /**
+     * Check if camera is currently shaking
+     */
+    isCameraShaking() {
+        return this.isShaking;
+    }
+
     handleResize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    // Method to temporarily disable/enable orbit controls
+    setOrbitControlsEnabled(enabled) {
+        if (this.controls && !isMobile) {
+            this.controls.enabled = enabled;
+        }
+    }
+
     update() {
-        // Only update OrbitControls on desktop
-        if (!isMobile) {
+        // Only update OrbitControls on desktop when enabled
+        if (!isMobile && this.controls && this.controls.enabled) {
             this.controls.update();
         }
     }
