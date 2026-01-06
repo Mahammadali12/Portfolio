@@ -70,7 +70,7 @@ export class SceneManager {
         this.controls.maxPolarAngle = CONFIG.CAMERA.ORBIT_MAX_POLAR_ANGLE;
         this.controls.minPolarAngle = CONFIG.CAMERA.ORBIT_MIN_POLAR_ANGLE;
         this.controls.target.set(0, 0, 0);
-        this.controls.enabled = !isMobile; // Keep enabled for desktop
+        this.controls.enabled = !isMobile;
         this.controls.update();
     }
 
@@ -211,9 +211,16 @@ export class SceneManager {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    // Method to temporarily disable/enable orbit controls
+    setOrbitControlsEnabled(enabled) {
+        if (this.controls && !isMobile) {
+            this.controls.enabled = enabled;
+        }
+    }
+
     update() {
-        // Only update OrbitControls on desktop
-        if (!isMobile) {
+        // Only update OrbitControls on desktop when enabled
+        if (!isMobile && this.controls && this.controls.enabled) {
             this.controls.update();
         }
     }

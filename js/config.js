@@ -58,7 +58,13 @@ export const CONFIG = {
         ORBIT_MAX_DISTANCE: 150,
         ORBIT_MIN_POLAR_ANGLE: Math.PI / 6,
         ORBIT_MAX_POLAR_ANGLE: Math.PI / 2.2,
-        ORBIT_DAMPING_FACTOR: 0.05
+        ORBIT_DAMPING_FACTOR: 0.05,
+        // Section transition settings
+        SECTION_TRANSITION_DURATION: 800,      // ms for camera to move to section view
+        SECTION_RETURN_DURATION: 600,          // ms for camera to return to follow mode
+        SECTION_VIEW_HEIGHT: 25,               // Camera height when viewing section
+        SECTION_VIEW_DISTANCE: 35,             // Camera distance from section center
+        SECTION_VIEW_ANGLE: Math.PI / 4        // Camera angle offset
     },
 
     // Scene
@@ -184,7 +190,10 @@ export const CONFIG = {
         PANEL_CONTENT_ANIMATION_MS: 800,
         PANEL_FADE_OUT_DELAY_MS: 200,
         PANEL_CLEAR_DELAY_MS: 500,
-        LOADING_DELAY_MS: 1000
+        LOADING_DELAY_MS: 1000,
+        // Panel fly-in animation
+        PANEL_FLY_DURATION: 500,               // ms for panel to fly from world to UI position
+        PANEL_FLY_EASING: 'easeOutCubic'       // Easing function name
     }
 };
 
