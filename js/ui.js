@@ -51,7 +51,7 @@ export class UIManager {
             const lowerKey = key.toLowerCase();
             
             this.createSectionPlate(lowerKey, config);
-            this.createBillboardLabel(config);
+            // this.createBillboardLabel(config);
         });
     }
 
@@ -615,7 +615,7 @@ export class UIManager {
 
     update(carPosition, deltaTime = 16.67) {
         this.checkSectionCollision(carPosition);
-        this.updateBillboards();
+        // this.updateBillboards();
         this.updateCameraTransition(deltaTime);
     }
 }

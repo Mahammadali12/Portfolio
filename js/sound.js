@@ -55,8 +55,6 @@ export class SoundManager {
         else if (!isAccelerating && this.wasAccelerating) {
             this.fadeOutEngineSound();
         }
-        console.log("was", this.wasAccelerating);
-        console.log("is", isAccelerating)
         
         this.wasAccelerating = isAccelerating;
     }

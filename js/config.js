@@ -117,7 +117,8 @@ export const CONFIG = {
             color: 0xff7251,
             title: "👤 Profile",
             icon: "👤",
-            buildingType: "center"
+            buildingType: "center",
+            floatingModel: "assets/models/SWAT.glb"
         },
         EDUCATION: {
             position: { x: 30, y: 0, z: -30 },
@@ -125,7 +126,8 @@ export const CONFIG = {
             color: 0x9b2948,
             title: "🎓 Education",
             icon: "🎓",
-            buildingType: "university"
+            buildingType: "university",
+            floatingModel: "assets/models/Book.glb"
         },
         EXPERIENCE: {
             position: { x: -30, y: 0, z: 30 },
@@ -133,7 +135,8 @@ export const CONFIG = {
             color: 0xffca7b,
             title: "💼 Experience",
             icon: "💼",
-            buildingType: "office"
+            buildingType: "office",
+            floatingModel: "assets/models/Briefcase.glb"
         },
         PROJECTS: {
             position: { x: 30, y: 0, z: 30 },
@@ -141,7 +144,8 @@ export const CONFIG = {
             color: 0xffcd74,
             title: "🚀 Projects",
             icon: "🚀",
-            buildingType: "lab"
+            buildingType: "lab",
+            floatingModel: "assets/models/Mech.glb"
         },
         SKILLS: {
             position: { x: -30, y: 0, z: -30 },
@@ -149,7 +153,8 @@ export const CONFIG = {
             color: 0xffedbf,
             title: "⚡ Skills",
             icon: "⚡",
-            buildingType: "tower"
+            buildingType: "tower",
+            floatingModel: "assets/models/Tank.glb"
         }
     },
 
@@ -168,7 +173,7 @@ export const CONFIG = {
         SCALE: { x: 1.5, y: 1.5, z: 1.5 },
         START_POSITION: { x: 15, y: 1, z: 15 },
         START_ROTATION: Math.PI,
-        MODEL_PATH: 'assets/car.glb',
+        MODEL_PATH: 'assets/models/car.glb',
         FALLBACK_SIZE: { body: [2.5, 1, 4.5], wheel: [0.4, 0.4, 0.3] }
     },
 
@@ -213,6 +218,20 @@ export const CONFIG = {
         ENGINE_VOLUME: 0.15,
         INTERACTION_VOLUME: 0.5,
         FADE_DURATION: 1500    // 2 seconds fade out
+    },
+
+    // Floating Objects
+    FLOATING_OBJECTS: {
+        HEIGHT: 8,                    // Base height above ground
+        BOB_AMPLITUDE: 1.5,           // How much it bobs up/down
+        BOB_SPEED: 0.8,               // Speed of bobbing (radians per second)
+        ROTATION_SPEED_Y: 0.3,        // Y-axis rotation speed (radians per second)
+        ROTATION_SPEED_X: 0.1,        // Slight X-axis wobble
+        ROTATION_SPEED_Z: 0.05,       // Slight Z-axis wobble
+        SCALE: 3,                     // Default scale (used for placeholders)
+        TARGET_SIZE: 8,               // Target size in world units (auto-scale to fit this)
+        MIN_SCALE: 0.01,              // Minimum scale to ensure visibility
+        EMISSIVE_INTENSITY: 0.3       // Glow intensity
     }
 };
 
