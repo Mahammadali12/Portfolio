@@ -204,6 +204,15 @@ export const CONFIG = {
         // Panel fly-in animation
         PANEL_FLY_DURATION: 500,               // ms for panel to fly from world to UI position
         PANEL_FLY_EASING: 'easeOutCubic'       // Easing function name
+    },
+
+    // Sound
+    SOUND: {
+        ENGINE_ACCELERATE: 'assets/sound/engine.mp3',
+        INTERACTION: 'assets/sound/interact.mp3',
+        ENGINE_VOLUME: 0.15,
+        INTERACTION_VOLUME: 0.5,
+        FADE_DURATION: 1500    // 2 seconds fade out
     }
 };
 

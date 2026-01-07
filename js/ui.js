@@ -5,10 +5,11 @@ import { CONFIG, isMobile } from './config.js';
 import { sectionsData } from './sections.js';
 
 export class UIManager {
-    constructor(scene, camera, sceneManager) {
+    constructor(scene, camera, sceneManager, soundManager = null) {
         this.scene = scene;
         this.camera = camera;
         this.sceneManager = sceneManager; // Reference to SceneManager for camera control
+        this.soundManager = soundManager; // Reference to SoundManager for interaction sounds
         
         this.sectionMeshes = [];
         this.sectionLabels = [];
@@ -155,6 +156,11 @@ export class UIManager {
             if (e.key.toLowerCase() === 'f' && this.sectionInRange && !this.isInteracting) {
                 this.triggerInteraction(this.sectionInRange);
             }
+            
+            // ESC key to close panel
+            if (e.key === 'Escape' && this.isInteracting) {
+                this.hideSectionInfo();
+            }
         });
     }
 
@@ -251,6 +257,11 @@ export class UIManager {
 
     triggerInteraction(sectionKey) {
         if (this.isInteracting || this.isPanelAnimating || this.panelCooldown) return;
+        
+        // Play interaction sound
+        if (this.soundManager) {
+            this.soundManager.playInteractionSound();
+        }
         
         this.isInteracting = true;
         this.hideInteractionIndicator();
@@ -483,6 +494,11 @@ export class UIManager {
             this.isPanelAnimating = false;
             this.isInteracting = false;
             return;
+        }
+
+        // Play interaction sound on close
+        if (this.soundManager) {
+            this.soundManager.playInteractionSound();
         }
 
         this.panelCooldown = true;
