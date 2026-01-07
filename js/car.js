@@ -796,4 +796,11 @@ export class Car {
     isLoaded() {
         return this.mesh !== null;
     }
+
+    /**
+     * Check if car is currently accelerating (for sound system)
+     */
+    isCurrentlyAccelerating() {
+        return this.isAccelerating;
+    }
 }

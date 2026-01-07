@@ -1,6 +1,7 @@
 // ==================== VISUAL EFFECTS ====================
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CONFIG } from './config.js';
 
 // ==================== DUST PARTICLES ====================
@@ -110,183 +111,226 @@ export class DriftTrailSystem {
     }
 }
 
-// ==================== SECTION BUILDINGS ====================
-export class BuildingManager {
+// ==================== FLOATING OBJECTS ====================
+export class FloatingObjectManager {
     constructor(scene) {
         this.scene = scene;
-        this.buildings = [];
+        this.objects = [];
+        this.loader = new GLTFLoader();
+        this.time = 0;
+        
+        this.initFloatingObjects();
     }
 
-    createBuilding(type, color, position) {
-        const buildingGroup = new THREE.Group();
-        const baseColor = color;
-        
-        switch(type) {
-            case 'center':
-                this.createCenterBuilding(buildingGroup, baseColor);
-                break;
-            case 'university':
-                this.createUniversityBuilding(buildingGroup, baseColor);
-                break;
-            case 'office':
-                this.createOfficeBuilding(buildingGroup, baseColor);
-                break;
-            case 'lab':
-                this.createLabBuilding(buildingGroup, baseColor);
-                break;
-            case 'tower':
-                this.createTowerBuilding(buildingGroup, baseColor);
-                break;
-        }
-        
-        buildingGroup.position.set(position.x, 0, position.z);
-        this.scene.add(buildingGroup);
-        this.buildings.push(buildingGroup);
-        
-        return buildingGroup;
+    initFloatingObjects() {
+        Object.keys(CONFIG.SECTIONS).forEach((key, index) => {
+            const sectionConfig = CONFIG.SECTIONS[key];
+            this.createFloatingObject(key, sectionConfig, index);
+        });
     }
 
-    createCenterBuilding(group, color) {
-        const baseGeometry = new THREE.BoxGeometry(5, 10, 5);
-        const baseMaterial = new THREE.MeshPhongMaterial({ color, shininess: 30 });
-        const base = new THREE.Mesh(baseGeometry, baseMaterial);
-        base.position.y = 5;
-        base.castShadow = true;
-        base.receiveShadow = true;
-        group.add(base);
-        
-        const pyramidGeometry = new THREE.ConeGeometry(3.5, 4, 4);
-        const pyramidMaterial = new THREE.MeshPhongMaterial({ color: 0x9b2948, shininess: 20 });
-        const pyramid = new THREE.Mesh(pyramidGeometry, pyramidMaterial);
-        pyramid.position.y = 12;
-        pyramid.castShadow = true;
-        group.add(pyramid);
-        
-        for(let i = 0; i < 4; i++) {
-            const windowGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.1);
-            const windowMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xffcd74,
-                emissive: 0xffcd74,
-                emissiveIntensity: 0.3
-            });
-            const window = new THREE.Mesh(windowGeometry, windowMaterial);
-            window.position.set(
-                i % 2 === 0 ? -1.5 : 1.5,
-                3 + Math.floor(i/2) * 3,
-                2.6
-            );
-            group.add(window);
-        }
-    }
-
-    createUniversityBuilding(group, color) {
-        const baseGeometry = new THREE.BoxGeometry(7, 8, 7);
-        const baseMaterial = new THREE.MeshPhongMaterial({ color, shininess: 30 });
-        const base = new THREE.Mesh(baseGeometry, baseMaterial);
-        base.position.y = 4;
-        base.castShadow = true;
-        base.receiveShadow = true;
-        group.add(base);
-        
-        const roofGeometry = new THREE.BoxGeometry(8, 0.5, 8);
-        const roofMaterial = new THREE.MeshPhongMaterial({ color: 0x3a1c00 });
-        const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-        roof.position.y = 8.25;
-        group.add(roof);
-        
-        for(let i = 0; i < 4; i++) {
-            const columnGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2);
-            const columnMaterial = new THREE.MeshPhongMaterial({ color: 0xffcd74 });
-            const column = new THREE.Mesh(columnGeometry, columnMaterial);
-            const angle = (i / 4) * Math.PI * 2;
-            column.position.set(Math.cos(angle) * 2.5, 5, Math.sin(angle) * 2.5);
-            group.add(column);
-        }
-    }
-
-    createOfficeBuilding(group, color) {
-        const towerGeometry = new THREE.BoxGeometry(4, 14, 4);
-        const towerMaterial = new THREE.MeshPhongMaterial({ color, shininess: 40 });
-        const tower = new THREE.Mesh(towerGeometry, towerMaterial);
-        tower.position.y = 7;
-        tower.castShadow = true;
-        tower.receiveShadow = true;
-        group.add(tower);
-        
-        for(let i = 0; i < 3; i++) {
-            for(let j = 0; j < 4; j++) {
-                const windowGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.1);
-                const windowMaterial = new THREE.MeshPhongMaterial({ 
-                    color: 0x00a8ff,
-                    emissive: 0x00a8ff,
-                    emissiveIntensity: 0.4
-                });
-                const window = new THREE.Mesh(windowGeometry, windowMaterial);
-                window.position.set(-1.2 + i * 1.2, 3 + j * 2.5, 2.1);
-                group.add(window);
+    createFloatingObject(sectionKey, sectionConfig, index) {
+        // Try to load the model, fall back to placeholder if it fails
+        this.loader.load(
+            sectionConfig.floatingModel,
+            (gltf) => {
+                console.log(`✓ Loaded model for ${sectionKey}:`, sectionConfig.floatingModel);
+                const model = gltf.scene;
+                this.setupFloatingObject(model, sectionKey, sectionConfig, index, true);
+            },
+            (progress) => {
+                // Loading progress
+            },
+            (error) => {
+                console.warn(`✗ Failed to load model for ${sectionKey}:`, error);
+                console.log(`Using placeholder for ${sectionKey} floating object`);
+                const placeholder = this.createPlaceholder(sectionKey, sectionConfig);
+                this.setupFloatingObject(placeholder, sectionKey, sectionConfig, index, false);
             }
-        }
-        
-        const rooftopGeometry = new THREE.BoxGeometry(5, 2, 5);
-        const rooftopMaterial = new THREE.MeshPhongMaterial({ color: 0x3a1c00 });
-        const rooftop = new THREE.Mesh(rooftopGeometry, rooftopMaterial);
-        rooftop.position.y = 15;
-        group.add(rooftop);
+        );
     }
 
-    createLabBuilding(group, color) {
-        const baseGeometry = new THREE.BoxGeometry(6, 6, 6);
-        const baseMaterial = new THREE.MeshPhongMaterial({ color, shininess: 35 });
-        const base = new THREE.Mesh(baseGeometry, baseMaterial);
-        base.position.y = 3;
-        base.castShadow = true;
-        base.receiveShadow = true;
-        group.add(base);
+    createPlaceholder(sectionKey, sectionConfig) {
+        const group = new THREE.Group();
+        const color = sectionConfig.color;
         
-        const domeGeometry = new THREE.SphereGeometry(3.5, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
-        const domeMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0x00a8ff,
+        // Create different placeholder shapes based on section
+        let geometry;
+        switch(sectionKey) {
+            case 'PROFILE':
+                // Icosahedron for profile (person-like abstract)
+                geometry = new THREE.IcosahedronGeometry(2, 0);
+                break;
+            case 'EDUCATION':
+                // Octahedron for education (book/diamond shape)
+                geometry = new THREE.OctahedronGeometry(2, 0);
+                break;
+            case 'EXPERIENCE':
+                // Box for experience (briefcase-like)
+                geometry = new THREE.BoxGeometry(3, 2, 2);
+                break;
+            case 'PROJECTS':
+                // Cone for projects (rocket-like)
+                geometry = new THREE.ConeGeometry(1.5, 4, 6);
+                break;
+            case 'SKILLS':
+                // Torus for skills (interconnected ring)
+                geometry = new THREE.TorusGeometry(1.5, 0.6, 8, 16);
+                break;
+            default:
+                geometry = new THREE.SphereGeometry(2, 16, 16);
+        }
+        
+        const material = new THREE.MeshPhongMaterial({
+            color: color,
+            emissive: color,
+            emissiveIntensity: CONFIG.FLOATING_OBJECTS.EMISSIVE_INTENSITY,
             transparent: true,
-            opacity: 0.7
+            opacity: 0.9,
+            shininess: 100
         });
-        const dome = new THREE.Mesh(domeGeometry, domeMaterial);
-        dome.position.y = 9;
-        dome.rotation.x = Math.PI;
-        group.add(dome);
         
-        const antennaGeometry = new THREE.CylinderGeometry(0.1, 0.1, 3);
-        const antennaMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
-        const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
-        antenna.position.y = 12.5;
-        group.add(antenna);
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = false; // Ghost object, no shadow
+        mesh.receiveShadow = false;
+        group.add(mesh);
+        
+        // Add wireframe overlay for extra visual interest
+        const wireframeMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        const wireframe = new THREE.Mesh(geometry.clone(), wireframeMaterial);
+        wireframe.scale.setScalar(1.05);
+        group.add(wireframe);
+        
+        return group;
     }
 
-    createTowerBuilding(group, color) {
-        const towerGeometry = new THREE.BoxGeometry(3, 16, 3);
-        const towerMaterial = new THREE.MeshPhongMaterial({ color, shininess: 50 });
-        const tower = new THREE.Mesh(towerGeometry, towerMaterial);
-        tower.position.y = 8;
-        tower.castShadow = true;
-        tower.receiveShadow = true;
-        group.add(tower);
+    setupFloatingObject(object, sectionKey, sectionConfig, index, isLoadedModel = true) {
+        const floatingConfig = CONFIG.FLOATING_OBJECTS;
         
-        for(let i = 0; i < 3; i++) {
-            const ringGeometry = new THREE.TorusGeometry(2.2, 0.3, 8, 12);
-            const ringMaterial = new THREE.MeshPhongMaterial({ color: 0xffcd74 });
-            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-            ring.position.y = 3 + i * 5;
-            ring.rotation.x = Math.PI / 2;
-            group.add(ring);
+        // Create a wrapper group for positioning in the world
+        const wrapper = new THREE.Group();
+        
+        // Create a pivot group for centering the model (rotation happens here)
+        const pivot = new THREE.Group();
+        
+        if (isLoadedModel) {
+            // Reset any existing transforms on the object
+            object.position.set(0, 0, 0);
+            object.rotation.set(0, 0, 0);
+            object.scale.set(1, 1, 1);
+            object.updateMatrixWorld(true);
+            
+            // Calculate bounding box of the loaded model at scale 1
+            const box = new THREE.Box3().setFromObject(object);
+            const size = new THREE.Vector3();
+            const center = new THREE.Vector3();
+            box.getSize(size);
+            box.getCenter(center);
+            
+            console.log(`${sectionKey} model - Size:`, size, 'Center:', center);
+            
+            // Check for valid dimensions
+            const maxDimension = Math.max(size.x, size.y, size.z);
+            if (maxDimension === 0 || !isFinite(maxDimension)) {
+                console.warn(`${sectionKey}: Invalid model dimensions, using default scale`);
+                object.scale.setScalar(floatingConfig.SCALE);
+            } else {
+                // Calculate scale to fit target size
+                const scaleFactor = floatingConfig.TARGET_SIZE / maxDimension;
+                
+                // First, offset the object so its center is at origin (BEFORE scaling)
+                // This way, the pivot point becomes the center of the model
+                object.position.set(-center.x, -center.y, -center.z);
+                
+                // Then apply scale to the pivot group (which contains the offset object)
+                pivot.scale.setScalar(scaleFactor);
+                
+                console.log(`${sectionKey}: scaled to ${scaleFactor.toFixed(4)}x, centering offset: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)})`);
+            }
+        } else {
+            // Use default scale for placeholders (already centered)
+            pivot.scale.setScalar(floatingConfig.SCALE);
         }
         
-        const spireGeometry = new THREE.ConeGeometry(0.5, 4, 4);
-        const spireMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0xffffff,
-            emissive: 0xffffff,
-            emissiveIntensity: 0.2
+        // Add object to pivot (pivot handles centering + scale)
+        pivot.add(object);
+        
+        // Add pivot to wrapper (wrapper handles world position)
+        wrapper.add(pivot);
+        
+        // Position the wrapper above the section plate
+        wrapper.position.set(
+            sectionConfig.position.x,
+            floatingConfig.HEIGHT,
+            sectionConfig.position.z
+        );
+        
+        // Apply emissive glow to all meshes
+        object.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = false;
+                child.receiveShadow = false;
+                
+                if (child.material) {
+                    // Clone material to avoid affecting other instances
+                    if (Array.isArray(child.material)) {
+                        child.material = child.material.map(m => {
+                            const cloned = m.clone();
+                            cloned.emissive = new THREE.Color(sectionConfig.color);
+                            cloned.emissiveIntensity = floatingConfig.EMISSIVE_INTENSITY;
+                            return cloned;
+                        });
+                    } else {
+                        child.material = child.material.clone();
+                        child.material.emissive = new THREE.Color(sectionConfig.color);
+                        child.material.emissiveIntensity = floatingConfig.EMISSIVE_INTENSITY;
+                    }
+                }
+            }
         });
-        const spire = new THREE.Mesh(spireGeometry, spireMaterial);
-        spire.position.y = 20;
-        group.add(spire);
+        
+        // Store animation data on the wrapper
+        // Store pivot reference for rotation animation
+        wrapper.userData = {
+            sectionKey: sectionKey,
+            baseY: floatingConfig.HEIGHT,
+            phaseOffset: index * Math.PI * 0.4,
+            pivot: pivot, // Reference to pivot for rotation
+            rotationOffset: {
+                x: Math.random() * Math.PI * 2,
+                y: Math.random() * Math.PI * 2,
+                z: Math.random() * Math.PI * 2
+            }
+        };
+        
+        this.scene.add(wrapper);
+        this.objects.push(wrapper);
+        
+        console.log(`${sectionKey}: Added to scene at position`, wrapper.position);
+    }
+
+    update(deltaTime) {
+        const floatingConfig = CONFIG.FLOATING_OBJECTS;
+        this.time += deltaTime * 0.001;
+        
+        this.objects.forEach((wrapper) => {
+            const userData = wrapper.userData;
+            const phase = this.time + userData.phaseOffset;
+            
+            // Bobbing motion on the wrapper
+            wrapper.position.y = userData.baseY + 
+                Math.sin(phase * floatingConfig.BOB_SPEED) * floatingConfig.BOB_AMPLITUDE;
+            
+            // Rotation animation on the pivot (so it rotates around its center)
+            if (userData.pivot) {
+                userData.pivot.rotation.y = userData.rotationOffset.y + 
+                    this.time * floatingConfig.ROTATION_SPEED_Y;
+            }
+        });
     }
 }

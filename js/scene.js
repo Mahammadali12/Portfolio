@@ -251,7 +251,6 @@ export class SceneManager {
         
         // Apply shake offset to camera position
         this.camera.position.add(this.shakeOffset);
-        console.log(this.shakeOffset)
         // Apply slight rotation for extra effect
         this.camera.rotation.z += this.shakeRotation;
         
