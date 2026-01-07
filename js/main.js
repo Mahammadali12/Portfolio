@@ -43,9 +43,9 @@ class Application {
         this.floatingObjects = new FloatingObjectManager(this.sceneManager.scene);
         
         // Initialize sound manager (skip on mobile for now)
-        // if (!isMobile) {
+        if (!isMobile) {
             this.soundManager = new SoundManager();
-        // }
+        }
         
         // Initialize UI - pass sceneManager for camera control and soundManager for interaction sounds
         this.uiManager = new UIManager(
