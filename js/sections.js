@@ -41,17 +41,13 @@ export const sectionsData = {
             <h3 class="section-title">Education</h3>
             <div class="project-item">
                 <h4>ADA University</h4>
-                <p>Bachelor of Arts in Computer Science</p>
-                <p><strong>Baku, Azerbaijan</strong> | Sep 2022 – May 2027</p>
+                <p>Bachelor of Science in Computer Science</p>
+                <p><strong>Baku, Azerbaijan</strong> | Sep. 2022 – May 2027</p>
             </div>
             <div class="project-item">
                 <h4>Transport and Telecommunication Institute</h4>
-                <p>Bachelor of Applied Science in Computer Science (Exchange Program)</p>
-                <p><strong>Riga, Latvia</strong> | Feb 2025 – June 2025</p>
-            </div>
-            <div class="project-item">
-                <h4>Relevant Coursework</h4>
-                <p>Data Structures and Algorithms, Object-Oriented Programming (Java), Operating Systems, Computer Networks, Database Systems, Discrete Mathematics, Probability and Statistics, Software Engineering Principles</p>
+                <p>B.S. in Computer Science (Exchange Program)</p>
+                <p><strong>Riga, Latvia</strong> | Feb. 2025 – June 2025</p>
             </div>
         `
     },
@@ -60,11 +56,12 @@ export const sectionsData = {
         content: `
             <h3 class="section-title">Work Experience</h3>
             <div class="project-item">
-                <h4>Software Engineer Intern - AzSimX Azersilah</h4>
-                <p><strong>Baku, Azerbaijan</strong> | July 2025 – Dec 2025</p>
-                <p>• Engineered a high-fidelity physics simulation module in C# (Unity), increasing aerodynamic calculation accuracy by 15% and eliminating trajectory drift by 22% compared to engine defaults.</p>
-                <p>• Optimized real-time rendering and calculation loops, maintaining a stable 90 FPS in VR and reducing average frame latency from 14ms to 9ms through profiling and bottleneck elimination.</p>
-                <p>• Designed software interface for hardware integration, achieving sub-millisecond response times and improving hardware-to-software synchronization reliability by 30%.</p>
+                <h4>Software Engineer Intern (Performance & Distributed Systems)</h4>
+                <p><strong>AzSimX Azersilah</strong> | Baku, Azerbaijan</p>
+                <p><strong>July 2025 – Dec. 2025</strong></p>
+                <p>• Engineered high-performance logic in C#, optimizing rendering loops to achieve a 35% reduction in latency (14ms to 9ms), a methodology directly applicable to Java server-side optimization.</p>
+                <p>• Designed asynchronous synchronization modules between hardware and software, ensuring 100% data integrity in a distributed systems architecture.</p>
+                <p>• Utilized profiling tools to identify and eliminate memory leaks and processing bottlenecks in safety-critical simulation modules.</p>
             </div>
         `
     },
@@ -73,22 +70,21 @@ export const sectionsData = {
         content: `
             <h3 class="section-title">Technical Projects</h3>
             <div class="project-item">
-                <h4>HTTP Web Server | C, POSIX, Socket programming</h4>
-                <p>• Architected a multithreaded HTTP server in C handling 1,000+ concurrent connections with average response times under 50ms.</p>
-                <p>• Reduced memory overhead by 40% by implementing a custom thread-pool and request parser, ensuring stability under high-throughput conditions.</p>
-                <p>• Implemented HTTP/1.1 persistent connections, resulting in a 25% reduction in TCP handshake overhead for multi-request sessions.</p>
+                <h4>Reactive Microservices Prototype | Java, Spring WebFlux, RabbitMQ, MongoDB</h4>
+                <p>• Designed a non-blocking backend service using Spring WebFlux and Project Reactor to handle high-concurrency event streams with minimal resource overhead.</p>
+                <p>• Implemented asynchronous communication between services using RabbitMQ as a message broker, ensuring decoupled and scalable microservices architecture.</p>
+                <p>• Utilized MongoDB for flexible data storage of semi-structured event logs, achieving faster write speeds compared to traditional relational databases for high-velocity data.</p>
             </div>
             <div class="project-item">
-                <h4>Task Manager REST API | Go, net/http, JSON</h4>
-                <p>• Developed a concurrent REST API in Go, utilizing Goroutines and Channels to increase request throughput by 4x compared to synchronous processing.</p>
-                <p>• Improved maintainability and test coverage by 35% by implementing Hexagonal Architecture, decoupling domain logic for isolated unit testing.</p>
-                <p>• Eliminated race conditions during high-concurrency tasks, ensuring 100% data integrity across 500+ automated stress tests.</p>
+                <h4>Distributed Enterprise System | Java, PostgreSQL, Redis, Maven</h4>
+                <p>• Architected a multithreaded Java system implementing strict OOP design patterns to manage concurrent resource allocation and data persistence.</p>
+                <p>• Integrated Redis for distributed caching, reducing database load and improving application response times for frequently accessed data clusters.</p>
+                <p>• Utilized JUnit and Mockito to implement comprehensive unit testing, ensuring zero-regression during the implementation of new service features.</p>
             </div>
             <div class="project-item">
-                <h4>Web Scraper Application | Java, Jsony, Spring Boot, PostgreSQL, Docker</h4>
-                <p>• Built a containerized data extraction pipeline that increased collection speed by 60%, parsing 200+ structured records per minute to PostgreSQL.</p>
-                <p>• Designed an extensible API architecture for rapid onboarding of new scraping targets, reducing new model integration time by 50%.</p>
-                <p>• Reduced deployment configuration time by 80% by orchestrating the full stack with Docker Compose for consistent environment parity.</p>
+                <h4>High-Concurrency HTTP Server | C, POSIX Sockets, Multithreading</h4>
+                <p>• Architected a multithreaded HTTP/1.1 server in C to master Non-blocking I/O and the TCP/IP stack, providing the foundation for understanding Reactive Java Frameworks.</p>
+                <p>• Implemented custom thread-pooling to manage 1,000+ simultaneous connections, mirroring the concurrency models used in modern high-performance Java backends.</p>
             </div>
         `
     },
@@ -97,42 +93,43 @@ export const sectionsData = {
         content: `
             <h3 class="section-title">Technical Skills</h3>
             <div class="skill-category">
-                <h4>Programming Languages</h4>
-                <div class="skill-list">
-                    <span class="skill-tag">Java</span>
-                    <span class="skill-tag">Go</span>
-                    <span class="skill-tag">SQL (PostgreSQL)</span>
-                    <span class="skill-tag">C#</span>
-                    <span class="skill-tag">C</span>
-                </div>
-            </div>
-            <div class="skill-category">
-                <h4>Frameworks & Libraries</h4>
-                <div class="skill-list">
-                    <span class="skill-tag">Spring Boot</span>
-                    <span class="skill-tag">Unity</span>
-                    <span class="skill-tag">JUnit</span>
-                    <span class="skill-tag">Jsony</span>
-                    <span class="skill-tag">POSIX Sockets</span>
-                </div>
-            </div>
-            <div class="skill-category">
-                <h4>Tools & DevOps</h4>
-                <div class="skill-list">
-                    <span class="skill-tag">Git</span>
-                    <span class="skill-tag">Docker</span>
-                    <span class="skill-tag">Docker Compose</span>
-                    <span class="skill-tag">Linux (Bash)</span>
-                    <span class="skill-tag">Postman</span>
-                    <span class="skill-tag">Maven</span>
-                </div>
-            </div>
-            <div class="skill-category">
                 <h4>Languages</h4>
                 <div class="skill-list">
-                    <span class="skill-tag">Azerbaijani (Native)</span>
-                    <span class="skill-tag">English (Fluent)</span>
-                    <span class="skill-tag">Russian (Working Proficiency)</span>
+                    <span class="skill-tag">Java (Core/OOP)</span>
+                    <span class="skill-tag">C (Systems)</span>
+                    <span class="skill-tag">SQL (PostgreSQL)</span>
+                    <span class="skill-tag">C# (Performance)</span>
+                    <span class="skill-tag">MongoDB</span>
+                </div>
+            </div>
+            <div class="skill-category">
+                <h4>Back-End</h4>
+                <div class="skill-list">
+                    <span class="skill-tag">Spring WebFlux</span>
+                    <span class="skill-tag">Microservices</span>
+                    <span class="skill-tag">RabbitMQ</span>
+                    <span class="skill-tag">Redis</span>
+                    <span class="skill-tag">REST APIs</span>
+                    <span class="skill-tag">JUnit</span>
+                    <span class="skill-tag">Mockito</span>
+                </div>
+            </div>
+            <div class="skill-category">
+                <h4>Tools & Concepts</h4>
+                <div class="skill-list">
+                    <span class="skill-tag">Git (Collaborative Workflow)</span>
+                    <span class="skill-tag">Docker</span>
+                    <span class="skill-tag">Maven</span>
+                    <span class="skill-tag">Linux (Bash)</span>
+                    <span class="skill-tag">Reactive Programming</span>
+                </div>
+            </div>
+            <div class="skill-category">
+                <h4>Competencies</h4>
+                <div class="skill-list">
+                    <span class="skill-tag">High-Performance Computing</span>
+                    <span class="skill-tag">Distributed Systems</span>
+                    <span class="skill-tag">Asynchronous Messaging</span>
                 </div>
             </div>
         `

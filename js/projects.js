@@ -2,75 +2,57 @@
 
 export const projectsData = [
     {
-        id: 'http-server',
-        title: 'HTTP Web Server',
-        tagline: 'High-performance multithreaded server from scratch',
-        description: 'Architected a multithreaded HTTP server in C handling 1,000+ concurrent connections with average response times under 50ms. Implemented custom thread-pool, request parser, and HTTP/1.1 persistent connections.',
-        stack: ['C', 'POSIX', 'Socket Programming', 'Multithreading'],
+        id: 'reactive-microservices',
+        title: 'Reactive Microservices Prototype',
+        tagline: 'Non-blocking backend with async messaging',
+        description: 'Designed a non-blocking backend service using Spring WebFlux and Project Reactor to handle high-concurrency event streams with minimal resource overhead. Implemented asynchronous inter-service communication via RabbitMQ and utilized MongoDB for flexible, high-velocity data storage.',
+        stack: ['Java', 'Spring WebFlux', 'RabbitMQ', 'MongoDB'],
         links: [
             { label: 'GitHub', url: 'https://github.com/Mahammadali12' }
         ],
         trophies: [
-            { label: 'Concurrent Connections', value: '1,000+' },
-            { label: 'Avg Response Time', value: '<50ms' },
-            { label: 'Memory Overhead Reduced', value: '40%' },
-            { label: 'TCP Handshake Reduction', value: '25%' }
-        ],
-        artifactType: 'serverRack',
-        accentColor: 0x00ff88
-    },
-    {
-        id: 'task-manager-api',
-        title: 'Task Manager REST API',
-        tagline: 'Concurrent REST API with hexagonal architecture',
-        description: 'Developed a concurrent REST API in Go utilizing Goroutines and Channels to increase request throughput by 4x. Implemented Hexagonal Architecture for maintainability and eliminated race conditions across 500+ stress tests.',
-        stack: ['Go', 'net/http', 'JSON', 'Goroutines', 'Channels'],
-        links: [
-            { label: 'GitHub', url: 'https://github.com/Mahammadali12' }
-        ],
-        trophies: [
-            { label: 'Throughput Increase', value: '4x' },
-            { label: 'Test Coverage Boost', value: '35%' },
-            { label: 'Data Integrity', value: '100%' },
-            { label: 'Stress Tests Passed', value: '500+' }
+            { label: 'Architecture', value: 'Reactive' },
+            { label: 'Messaging', value: 'Async' },
+            { label: 'Data Store', value: 'MongoDB' },
+            { label: 'Framework', value: 'WebFlux' }
         ],
         artifactType: 'apiNodes',
         accentColor: 0x00bfff
     },
     {
-        id: 'web-scraper',
-        title: 'Web Scraper Application',
-        tagline: 'Containerized data extraction pipeline',
-        description: 'Built a containerized data extraction pipeline that increased collection speed by 60%, parsing 200+ structured records per minute to PostgreSQL. Orchestrated full stack with Docker Compose.',
-        stack: ['Java', 'Spring Boot', 'PostgreSQL', 'Docker', 'Jsony'],
+        id: 'distributed-enterprise',
+        title: 'Distributed Enterprise System',
+        tagline: 'Multithreaded Java with Redis caching',
+        description: 'Architected a multithreaded Java system implementing strict OOP design patterns to manage concurrent resource allocation and data persistence. Integrated Redis for distributed caching and implemented comprehensive testing with JUnit and Mockito.',
+        stack: ['Java', 'PostgreSQL', 'Redis', 'Maven'],
         links: [
             { label: 'GitHub', url: 'https://github.com/Mahammadali12' }
         ],
         trophies: [
-            { label: 'Collection Speed Increase', value: '60%' },
-            { label: 'Records Per Minute', value: '200+' },
-            { label: 'Integration Time Reduced', value: '50%' },
-            { label: 'Deploy Config Reduced', value: '80%' }
+            { label: 'Caching', value: 'Redis' },
+            { label: 'Testing', value: 'Zero-Reg' },
+            { label: 'Patterns', value: 'OOP' },
+            { label: 'Concurrency', value: 'Multi-T' }
         ],
-        artifactType: 'scraperBot',
+        artifactType: 'databaseCore',
         accentColor: 0xff6600
     },
     {
-        id: 'portfolio',
-        title: '3D Portfolio Website',
-        tagline: 'Interactive Three.js portfolio with car physics',
-        description: 'This very website! Built with Three.js featuring momentum-based car physics, drift mechanics, camera shake effects, and interactive section exploration. Desktop + mobile support.',
-        stack: ['JavaScript', 'Three.js', 'WebGL', 'CSS3'],
+        id: 'http-server',
+        title: 'High-Concurrency HTTP Server',
+        tagline: 'Systems-level C server with custom thread-pooling',
+        description: 'Architected a multithreaded HTTP/1.1 server in C to master Non-blocking I/O and the TCP/IP stack, providing the foundation for understanding Reactive Java Frameworks. Implemented custom thread-pooling to manage 1,000+ simultaneous connections.',
+        stack: ['C', 'POSIX Sockets', 'Multithreading'],
         links: [
             { label: 'GitHub', url: 'https://github.com/Mahammadali12' }
         ],
         trophies: [
-            { label: 'Physics Engine', value: 'Custom' },
-            { label: 'Mobile Support', value: 'Full' },
-            { label: 'FPS Target', value: '60' },
-            { label: 'Car Controls', value: 'Drift!' }
+            { label: 'Concurrent Connections', value: '1,000+' },
+            { label: 'I/O Model', value: 'Non-Block' },
+            { label: 'Protocol', value: 'HTTP/1.1' },
+            { label: 'Thread Pool', value: 'Custom' }
         ],
-        artifactType: 'databaseCore',
-        accentColor: 0xff7251
+        artifactType: 'serverRack',
+        accentColor: 0x00ff88
     }
 ];
