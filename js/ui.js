@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { CONFIG, isMobile } from './config.js';
 import { sectionsData } from './sections.js';
+import { ProjectsWorldManager } from './projectsWorld.js';
+import { projectsData } from './projects.js';
 
 export class UIManager {
     constructor(scene, camera, sceneManager, soundManager = null) {
@@ -36,10 +38,22 @@ export class UIManager {
         this.mobilePendingSection = null;
         this.mobileSectionBtn = document.getElementById('mobile-section-btn');
         
+        // === PROJECTS WORLD STATE ===
+        this.worldMode = 'main'; // 'main' | 'projects'
+        this.projectsWorld = null; // initialized after scene is fully set up
+        this.interactionContext = null; // { mode: 'enterProjects'|'garage'|'exitProjects', payload? }
+        this.activeGarageProjectId = null;
+        this.isTeleporting = false;
+        this.car = null; // Set from main.js via setCar()
+        this.screenFade = document.getElementById('screen-fade');
+        
         this.initSections();
         this.initMobileButton();
         this.initInteractionIndicator();
         this.initKeyboardListener();
+        
+        // Initialize projects world manager
+        this.projectsWorld = new ProjectsWorldManager(this.sceneManager);
         
         // Expose close function globally
         window.hideSectionInfo = () => this.hideSectionInfo();
@@ -53,6 +67,13 @@ export class UIManager {
             this.createSectionPlate(lowerKey, config);
             // this.createBillboardLabel(config);
         });
+    }
+
+    /**
+     * Set car reference (called from main.js after car is created)
+     */
+    setCar(car) {
+        this.car = car;
     }
 
     createSectionPlate(key, config) {
@@ -86,6 +107,11 @@ export class UIManager {
         
         this.scene.add(box);
         this.sectionMeshes.push(box);
+
+        // Add to mainWorldGroup so it hides with the main world
+        if (this.sceneManager && this.sceneManager.mainWorldGroup) {
+            this.sceneManager.mainWorldGroup.add(box); // This reparents from scene to group
+        }
 
         const edges = new THREE.EdgesGeometry(geometry);
         const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ 
@@ -153,8 +179,8 @@ export class UIManager {
         if (isMobile) return; // No keyboard on mobile
         
         document.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'f' && this.sectionInRange && !this.isInteracting) {
-                this.triggerInteraction(this.sectionInRange);
+            if (e.key.toLowerCase() === 'f') {
+                this.handleInteractionPress();
             }
             
             // ESC key to close panel
@@ -168,17 +194,25 @@ export class UIManager {
         if (!this.mobileSectionBtn) return;
         
         this.mobileSectionBtn.addEventListener('click', () => {
-            if (this.mobilePendingSection && !this.isInteracting) {
-                this.triggerInteraction(this.mobilePendingSection);
-            }
+            this.handleInteractionPress();
         });
     }
 
     showInteractionIndicator(sectionKey) {
-        if (isMobile || !this.interactionIndicator) return;
+        if (!this.interactionIndicator) return;
         
-        const config = CONFIG.SECTIONS[sectionKey.toUpperCase()];
-        if (config) {
+        // For projects in main world, show special text
+        if (sectionKey === 'projects' && this.worldMode === 'main') {
+            this.interactionIndicator.innerHTML = isMobile ? 
+                'Tap to <strong>Enter Projects</strong>' :
+                'Press <strong>F</strong> to Enter Projects';
+        } else {
+            this.interactionIndicator.innerHTML = isMobile ?
+                'Tap to <strong>interact</strong>' :
+                'Press <strong>F</strong> to interact';
+        }
+        
+        if (!isMobile) {
             this.interactionIndicator.style.display = 'block';
         }
     }
@@ -190,8 +224,15 @@ export class UIManager {
     }
 
     checkSectionCollision(carPosition) {
-        if (!carPosition || this.isInteracting) return;
+        if (!carPosition || this.isInteracting || this.isTeleporting) return;
         
+        // === PROJECTS WORLD MODE ===
+        if (this.worldMode === 'projects') {
+            this.checkProjectsWorldInteraction(carPosition);
+            return;
+        }
+
+        // === MAIN WORLD MODE ===
         let foundSection = false;
         let foundKey = null;
         
@@ -219,12 +260,20 @@ export class UIManager {
         if (foundSection) {
             if (this.sectionInRange !== foundKey) {
                 this.sectionInRange = foundKey;
+                this.interactionContext = null;
+                
+                // Special handling for projects section
+                if (foundKey === 'projects') {
+                    this.interactionContext = { mode: 'enterProjects' };
+                }
                 
                 if (isMobile) {
                     this.mobilePendingSection = foundKey;
                     if (this.mobileSectionBtn) {
-                        const title = CONFIG.SECTIONS[foundKey.toUpperCase()].title.replace(/^[^A-Za-z0-9]+/, '');
-                        this.mobileSectionBtn.textContent = title;
+                        const btnText = foundKey === 'projects' ? 
+                            'Enter Projects' : 
+                            CONFIG.SECTIONS[foundKey.toUpperCase()].title.replace(/^[^A-Za-z0-9]+/, '');
+                        this.mobileSectionBtn.textContent = btnText;
                         this.mobileSectionBtn.style.display = 'block';
                         void this.mobileSectionBtn.offsetWidth;
                         this.mobileSectionBtn.classList.add('show');
@@ -239,6 +288,7 @@ export class UIManager {
         // Car left all sections
         if (this.sectionInRange !== null) {
             this.sectionInRange = null;
+            this.interactionContext = null;
             this.hideInteractionIndicator();
             
             if (isMobile) {
@@ -511,6 +561,12 @@ export class UIManager {
             this.panelCooldownTimeout = null;
         }, CONFIG.UI.PANEL_COOLDOWN_MS);
 
+        // Close any open garage door
+        if (this.worldMode === 'projects' && this.activeGarageProjectId) {
+            this.projectsWorld.closeGarage(this.activeGarageProjectId);
+            this.activeGarageProjectId = null;
+        }
+
         // Fade out content first
         sectionContent.style.opacity = '0';
         sectionContent.style.transform = 'translateY(10px)';
@@ -530,24 +586,33 @@ export class UIManager {
             this.currentSection = null;
             this.removeSectionHighlight();
 
-            // Start camera return animation
-            this.animateCameraReturn(() => {
-                this.isInteracting = false;
-                
-                // Re-show interaction indicator if still in section
-                if (this.sectionInRange) {
-                    if (isMobile && this.mobileSectionBtn) {
-                        const title = CONFIG.SECTIONS[this.sectionInRange.toUpperCase()].title.replace(/^[^A-Za-z0-9]+/, '');
-                        this.mobileSectionBtn.textContent = title;
-                        this.mobileSectionBtn.style.display = 'block';
-                        void this.mobileSectionBtn.offsetWidth;
-                        this.mobileSectionBtn.classList.add('show');
-                        this.mobilePendingSection = this.sectionInRange;
-                    } else {
-                        this.showInteractionIndicator(this.sectionInRange);
+            // Camera return depends on world mode
+            if (this.worldMode === 'projects') {
+                // In projects world: animate camera back to follow mode
+                this.animateCameraToFollow(() => {
+                    this.isInteracting = false;
+                    this.interactionContext = null;
+                });
+            } else {
+                // In main world: use standard camera return
+                this.animateCameraReturn(() => {
+                    this.isInteracting = false;
+                    
+                    // Re-show interaction indicator if still in section
+                    if (this.sectionInRange) {
+                        if (isMobile && this.mobileSectionBtn) {
+                            const title = CONFIG.SECTIONS[this.sectionInRange.toUpperCase()].title.replace(/^[^A-Za-z0-9]+/, '');
+                            this.mobileSectionBtn.textContent = title;
+                            this.mobileSectionBtn.style.display = 'block';
+                            void this.mobileSectionBtn.offsetWidth;
+                            this.mobileSectionBtn.classList.add('show');
+                            this.mobilePendingSection = this.sectionInRange;
+                        } else {
+                            this.showInteractionIndicator(this.sectionInRange);
+                        }
                     }
-                }
-            });
+                });
+            }
 
             setTimeout(() => {
                 if (!sectionInfo.classList.contains('panel-show')) {
@@ -610,12 +675,404 @@ export class UIManager {
 
     // Check if car controls should be locked
     isCarLocked() {
-        return this.isInteracting;
+        return this.isInteracting || this.isTeleporting;
     }
 
     update(carPosition, deltaTime = 16.67) {
         this.checkSectionCollision(carPosition);
         // this.updateBillboards();
         this.updateCameraTransition(deltaTime);
+        
+        // Update projects world animations when in projects mode
+        if (this.worldMode === 'projects' && this.projectsWorld) {
+            this.projectsWorld.update(deltaTime);
+        }
+    }
+
+    // ==================== UNIFIED INTERACTION HANDLER ====================
+    handleInteractionPress() {
+        if (this.isInteracting || this.isTeleporting || this.isPanelAnimating) return;
+
+        // === PROJECTS WORLD INTERACTIONS ===
+        if (this.worldMode === 'projects' && this.interactionContext) {
+            if (this.interactionContext.mode === 'garage') {
+                const projectId = this.interactionContext.payload.projectId;
+                this.projectsWorld.triggerGarageInteraction(projectId);
+                this.activeGarageProjectId = projectId;
+                
+                // Play sound
+                if (this.soundManager) {
+                    this.soundManager.playInteractionSound();
+                }
+                
+                this.isInteracting = true;
+                this.hideInteractionIndicator();
+                this.hideMobileButton();
+                
+                // Cinematic camera for garage
+                this.animateCameraToGarage(projectId, () => {
+                    this.showProjectPanel(projectId);
+                });
+                return;
+            }
+            if (this.interactionContext.mode === 'exitProjects') {
+                this.exitProjectsWorld();
+                return;
+            }
+            return;
+        }
+        
+        // === MAIN WORLD INTERACTIONS ===
+        if (this.worldMode === 'main') {
+            // Special: Projects section triggers world enter
+            if (this.interactionContext && this.interactionContext.mode === 'enterProjects') {
+                this.enterProjectsWorld();
+                return;
+            }
+            
+            // Normal section interaction
+            if (this.sectionInRange && !this.isInteracting) {
+                this.triggerInteraction(this.sectionInRange);
+            }
+        }
+    }
+
+    // ==================== PROJECTS WORLD COLLISION CHECK ====================
+    checkProjectsWorldInteraction(carPosition) {
+        if (!this.projectsWorld) return;
+        
+        const nearest = this.projectsWorld.getNearestInteractable(carPosition);
+        
+        if (nearest) {
+            if (nearest.type === 'garage') {
+                const newContext = { mode: 'garage', payload: { projectId: nearest.projectId } };
+                
+                // Only update UI if context changed
+                if (!this.interactionContext || 
+                    this.interactionContext.mode !== 'garage' || 
+                    this.interactionContext.payload.projectId !== nearest.projectId) {
+                    
+                    this.interactionContext = newContext;
+                    
+                    // Find project title
+                    const project = projectsData.find(p => p.id === nearest.projectId);
+                    const title = project ? project.title : 'Project';
+                    
+                    if (isMobile) {
+                        this.showMobileButton(title);
+                    } else {
+                        this.interactionIndicator.innerHTML = `Press <strong>F</strong> to view <strong>${title}</strong>`;
+                        this.interactionIndicator.style.display = 'block';
+                    }
+                }
+            } else if (nearest.type === 'exit') {
+                if (!this.interactionContext || this.interactionContext.mode !== 'exitProjects') {
+                    this.interactionContext = { mode: 'exitProjects' };
+                    
+                    if (isMobile) {
+                        this.showMobileButton('Exit Projects');
+                    } else {
+                        this.interactionIndicator.innerHTML = 'Press <strong>F</strong> to Exit Projects';
+                        this.interactionIndicator.style.display = 'block';
+                    }
+                }
+            }
+        } else {
+            // Nothing nearby
+            if (this.interactionContext) {
+                this.interactionContext = null;
+                this.hideInteractionIndicator();
+                this.hideMobileButton();
+            }
+        }
+    }
+
+    // ==================== ENTER PROJECTS WORLD ====================
+    enterProjectsWorld() {
+        if (this.isTeleporting || !this.car) return;
+        
+        this.isTeleporting = true;
+        this.isInteracting = true;
+        this.isCameraTransitioning = true;
+        this.hideInteractionIndicator();
+        this.hideMobileButton();
+        
+        if (this.soundManager) {
+            this.soundManager.playInteractionSound();
+        }
+        
+        // Fade out -> swap -> fade in
+        this.fadeScreen(true, () => {
+            // Swap worlds
+            this.sceneManager.setWorld('projects');
+            this.worldMode = 'projects';
+            
+            // Teleport car
+            const pw = CONFIG.PROJECTS_WORLD;
+            this.car.setPose({
+                position: pw.SPAWN_POSITION,
+                rotationY: pw.SPAWN_ROTATION
+            });
+            
+            // Position camera for cinematic reveal
+            const camPos = new THREE.Vector3(0, pw.ENTER_CAMERA_HEIGHT, pw.ENTER_CAMERA_DISTANCE);
+            const camTarget = new THREE.Vector3(0, 0, 0);
+            this.camera.position.copy(camPos);
+            this.camera.lookAt(camTarget);
+            
+            if (this.sceneManager.controls) {
+                this.sceneManager.controls.target.copy(camTarget);
+            }
+            
+            // Fade back in
+            this.fadeScreen(false, () => {
+                // Cinematic camera move to follow car
+                this.animateCameraToFollow(() => {
+                    this.isTeleporting = false;
+                    this.isInteracting = false;
+                    this.isCameraTransitioning = false;
+                    this.sectionInRange = null;
+                    this.interactionContext = null;
+                });
+            });
+        });
+    }
+
+    // ==================== EXIT PROJECTS WORLD ====================
+    exitProjectsWorld() {
+        if (this.isTeleporting || !this.car) return;
+        
+        this.isTeleporting = true;
+        this.isInteracting = true;
+        this.isCameraTransitioning = true;
+        this.hideInteractionIndicator();
+        this.hideMobileButton();
+        
+        if (this.soundManager) {
+            this.soundManager.playInteractionSound();
+        }
+        
+        // Reset garages
+        this.projectsWorld.reset();
+        
+        this.fadeScreen(true, () => {
+            // Swap back to main
+            this.sceneManager.setWorld('main');
+            this.worldMode = 'main';
+            
+            // Teleport car back
+            const pw = CONFIG.PROJECTS_WORLD;
+            this.car.setPose({
+                position: pw.MAIN_RETURN_POSITION,
+                rotationY: pw.MAIN_RETURN_ROTATION
+            });
+            
+            // Position camera near car
+            const returnPos = pw.MAIN_RETURN_POSITION;
+            this.camera.position.set(returnPos.x + 30, 50, returnPos.z + 30);
+            this.camera.lookAt(new THREE.Vector3(returnPos.x, 0, returnPos.z));
+            
+            if (this.sceneManager.controls) {
+                this.sceneManager.controls.target.set(returnPos.x, 0, returnPos.z);
+            }
+            
+            this.fadeScreen(false, () => {
+                this.isTeleporting = false;
+                this.isInteracting = false;
+                this.isCameraTransitioning = false;
+                this.interactionContext = null;
+                this.activeGarageProjectId = null;
+            });
+        });
+    }
+
+    // ==================== CAMERA: ANIMATE TO GARAGE ====================
+    animateCameraToGarage(projectId, onComplete) {
+        const garage = this.projectsWorld.garages.find(g => g.id === projectId);
+        if (!garage) {
+            if (onComplete) onComplete();
+            return;
+        }
+        
+        // Store return state
+        this.cameraReturnPosition = this.camera.position.clone();
+        this.cameraReturnTarget = this.sceneManager.controls ? 
+            this.sceneManager.controls.target.clone() : new THREE.Vector3();
+        
+        // Calculate camera position looking into the garage
+        const garageForward = new THREE.Vector3(
+            Math.sin(garage.rotationY),
+            0,
+            Math.cos(garage.rotationY)
+        );
+        
+        const targetCameraPos = garage.position.clone()
+            .add(garageForward.clone().multiplyScalar(20))
+            .add(new THREE.Vector3(0, 12, 0));
+        
+        const targetLookAt = garage.position.clone();
+        targetLookAt.y = 3;
+        
+        this.isCameraTransitioning = true;
+        this.cameraTransitionProgress = 0;
+        this.cameraTransitionDuration = CONFIG.PROJECTS_WORLD.CINEMATIC_DURATION_MS;
+        this.cameraTransitionStart = {
+            position: this.camera.position.clone(),
+            target: this.sceneManager.controls ? 
+                this.sceneManager.controls.target.clone() : new THREE.Vector3()
+        };
+        this.cameraTransitionEnd = {
+            position: targetCameraPos,
+            target: targetLookAt
+        };
+        this.cameraTransitionCallback = onComplete;
+    }
+
+    // ==================== CAMERA: ANIMATE BACK TO FOLLOW ====================
+    animateCameraToFollow(onComplete) {
+        if (!this.car || !this.car.mesh) {
+            if (onComplete) onComplete();
+            return;
+        }
+        
+        const carPos = this.car.getPosition();
+        let targetCamPos, targetLookAt;
+        
+        if (isMobile) {
+            const offset = CONFIG.CAMERA.MOBILE_OFFSET;
+            targetCamPos = new THREE.Vector3(
+                carPos.x + offset.x,
+                offset.y,
+                carPos.z + offset.z
+            );
+        } else {
+            targetCamPos = new THREE.Vector3(
+                carPos.x + 30,
+                40,
+                carPos.z + 30
+            );
+        }
+        targetLookAt = new THREE.Vector3(carPos.x, 0, carPos.z);
+        
+        this.isCameraTransitioning = true;
+        this.cameraTransitionProgress = 0;
+        this.cameraTransitionDuration = 800;
+        this.cameraTransitionStart = {
+            position: this.camera.position.clone(),
+            target: this.sceneManager.controls ? 
+                this.sceneManager.controls.target.clone() : new THREE.Vector3()
+        };
+        this.cameraTransitionEnd = {
+            position: targetCamPos,
+            target: targetLookAt
+        };
+        this.cameraTransitionCallback = onComplete;
+    }
+
+    // ==================== PROJECT PANEL ====================
+    showProjectPanel(projectId) {
+        const project = projectsData.find(p => p.id === projectId);
+        if (!project) return;
+        
+        this.isPanelAnimating = true;
+        const sectionContent = document.getElementById('section-content');
+        const sectionInfo = document.getElementById('section-info');
+        
+        // Render project dashboard content
+        sectionContent.innerHTML = this.renderProjectContent(project);
+        sectionContent.classList.remove('section-content-animate');
+        
+        // Direct show (no fly-in from world pos since we're in projects world)
+        sectionInfo.style.right = '20px';
+        sectionInfo.style.opacity = '0';
+        sectionInfo.style.transform = 'translateX(50px)';
+        
+        void sectionInfo.offsetWidth;
+        sectionInfo.classList.add('panel-show');
+        sectionInfo.style.opacity = '';
+        sectionInfo.style.transform = '';
+        
+        setTimeout(() => {
+            sectionContent.classList.add('section-content-animate');
+            this.isPanelAnimating = false;
+        }, 100);
+        
+        this.currentSection = projectId;
+    }
+
+    renderProjectContent(project) {
+        const stackHtml = project.stack.map(s => 
+            `<span class="skill-tag">${s}</span>`
+        ).join('');
+        
+        const trophiesHtml = project.trophies.map(t => `
+            <div class="trophy-card">
+                <div class="trophy-value">${t.value}</div>
+                <div class="trophy-label">${t.label}</div>
+            </div>
+        `).join('');
+        
+        const linksHtml = project.links.map(l => 
+            `<a href="${l.url}" target="_blank" class="download-resume-btn" style="margin-top: 8px; display: inline-block; width: auto; padding: 8px 20px; font-size: 14px;">&#128279; ${l.label}</a>`
+        ).join('');
+        
+        return `
+            <div class="project-dashboard">
+                <h3 class="section-title">${project.title}</h3>
+                <p style="color: #ffca7b; font-style: italic; margin-bottom: 12px;">${project.tagline}</p>
+                <p style="color: #ffedbf; line-height: 1.6; margin-bottom: 16px;">${project.description}</p>
+                <div class="skill-category">
+                    <h4>Tech Stack</h4>
+                    <div class="stack-tags">${stackHtml}</div>
+                </div>
+                <div class="trophy-grid">${trophiesHtml}</div>
+                <div style="margin-top: 12px;">${linksHtml}</div>
+            </div>
+        `;
+    }
+
+    // ==================== FADE SCREEN HELPER ====================
+    fadeScreen(fadeIn, callback) {
+        if (!this.screenFade) {
+            if (callback) callback();
+            return;
+        }
+        
+        const duration = CONFIG.PROJECTS_WORLD.TELEPORT_FADE_MS;
+        
+        if (fadeIn) {
+            // Fade to black
+            this.screenFade.style.transition = `opacity ${duration}ms ease`;
+            this.screenFade.style.opacity = '1';
+            setTimeout(() => {
+                if (callback) callback();
+            }, duration);
+        } else {
+            // Fade from black
+            this.screenFade.style.transition = `opacity ${duration}ms ease`;
+            this.screenFade.style.opacity = '0';
+            setTimeout(() => {
+                if (callback) callback();
+            }, duration);
+        }
+    }
+
+    // ==================== MOBILE BUTTON HELPERS ====================
+    showMobileButton(text) {
+        if (!isMobile || !this.mobileSectionBtn) return;
+        this.mobileSectionBtn.textContent = text;
+        this.mobileSectionBtn.style.display = 'block';
+        void this.mobileSectionBtn.offsetWidth;
+        this.mobileSectionBtn.classList.add('show');
+    }
+
+    hideMobileButton() {
+        if (!this.mobileSectionBtn) return;
+        this.mobileSectionBtn.classList.remove('show');
+        setTimeout(() => {
+            if (!this.interactionContext) {
+                this.mobileSectionBtn.style.display = 'none';
+            }
+        }, 250);
     }
 }

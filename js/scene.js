@@ -11,6 +11,16 @@ export class SceneManager {
         this.renderer = null;
         this.controls = null;
         
+        // World groups for environment swapping
+        this.mainWorldGroup = new THREE.Group();
+        this.mainWorldGroup.name = 'mainWorld';
+        this.projectsWorldGroup = new THREE.Group();
+        this.projectsWorldGroup.name = 'projectsWorld';
+        this.scene.add(this.mainWorldGroup);
+        this.scene.add(this.projectsWorldGroup);
+        this.projectsWorldGroup.visible = false;
+        this.currentWorld = 'main'; // 'main' | 'projects'
+        
         // Camera shake properties
         this.isShaking = false;
         this.shakeIntensity = 0;
@@ -86,7 +96,7 @@ export class SceneManager {
             CONFIG.LIGHTING.AMBIENT_COLOR,
             CONFIG.LIGHTING.AMBIENT_INTENSITY
         );
-        this.scene.add(ambientLight);
+        this.scene.add(ambientLight); // Lights stay on scene (shared)
 
         // Directional light with shadows
         const directionalLight = new THREE.DirectionalLight(
@@ -123,14 +133,14 @@ export class SceneManager {
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = Math.PI / 2;
         ground.receiveShadow = true;
-        this.scene.add(ground);
+        this.mainWorldGroup.add(ground);
 
         // Add grid helper
         const gridHelper = new THREE.GridHelper(size, 20, CONFIG.COLORS.GRID, CONFIG.COLORS.GRID);
         gridHelper.position.y = 0.01;
         gridHelper.material.opacity = 0.15;
         gridHelper.material.transparent = true;
-        this.scene.add(gridHelper);
+        this.mainWorldGroup.add(gridHelper);
     }
 
     addBoundaryMarkers() {
@@ -152,7 +162,7 @@ export class SceneManager {
         
         const boundaryGeometry = new THREE.BufferGeometry().setFromPoints(boundaryPoints);
         const boundaryLine = new THREE.Line(boundaryGeometry, boundaryMaterial);
-        this.scene.add(boundaryLine);
+        this.mainWorldGroup.add(boundaryLine);
     }
 
     addDecorativeElements() {
@@ -182,7 +192,7 @@ export class SceneManager {
         });
         
         const particleSystem = new THREE.Points(particles, particleMaterial);
-        this.scene.add(particleSystem);
+        this.mainWorldGroup.add(particleSystem);
     }
 
     updateCameraFollow(carPosition, carRotation) {
@@ -298,5 +308,29 @@ export class SceneManager {
 
     render() {
         this.renderer.render(this.scene, this.camera);
+    }
+
+    /**
+     * Switch between main world and projects world
+     * @param {'main'|'projects'} mode
+     */
+    setWorld(mode) {
+        if (mode === 'projects') {
+            this.mainWorldGroup.visible = false;
+            this.projectsWorldGroup.visible = true;
+            this.currentWorld = 'projects';
+        } else {
+            this.mainWorldGroup.visible = true;
+            this.projectsWorldGroup.visible = false;
+            this.currentWorld = 'main';
+        }
+    }
+
+    /**
+     * Get current world mode
+     * @returns {'main'|'projects'}
+     */
+    getWorld() {
+        return this.currentWorld;
     }
 }

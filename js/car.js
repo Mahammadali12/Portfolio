@@ -609,7 +609,11 @@ export class Car {
      * Check and handle boundary collisions
      */
     checkBoundaries() {
-        const { minX, maxX, minZ, maxZ } = CONFIG.SCENE.BOUNDARY;
+        // Use projects world boundary if in that world, else main world boundary
+        const boundary = (this.sceneManager && this.sceneManager.currentWorld === 'projects') 
+            ? CONFIG.PROJECTS_WORLD.BOUNDARY 
+            : CONFIG.SCENE.BOUNDARY;
+        const { minX, maxX, minZ, maxZ } = boundary;
         const newX = this.mesh.position.x + this.velocity.x;
         const newZ = this.mesh.position.z + this.velocity.z;
         
@@ -724,7 +728,10 @@ export class Car {
     
     isAtBoundary() {
         if (!this.mesh) return false;
-        const { minX, maxX, minZ, maxZ } = CONFIG.SCENE.BOUNDARY;
+        const boundary = (this.sceneManager && this.sceneManager.currentWorld === 'projects') 
+            ? CONFIG.PROJECTS_WORLD.BOUNDARY 
+            : CONFIG.SCENE.BOUNDARY;
+        const { minX, maxX, minZ, maxZ } = boundary;
         const pos = this.mesh.position;
         const threshold = 3;
         
@@ -802,5 +809,40 @@ export class Car {
      */
     isCurrentlyAccelerating() {
         return this.isAccelerating;
+    }
+
+    /**
+     * Teleport car to a new pose (position + rotation) and optionally reset physics
+     * Used for world transitions (main <-> projects)
+     * @param {Object} pose - { position: {x, y, z}, rotationY: number }
+     * @param {Object} options - { resetVelocity: boolean }
+     */
+    setPose(pose, { resetVelocity = true } = {}) {
+        if (!this.mesh) return;
+
+        if (pose.position) {
+            this.mesh.position.set(pose.position.x, pose.position.y, pose.position.z);
+        }
+        if (pose.rotationY !== undefined) {
+            this.mesh.rotation.y = pose.rotationY;
+        }
+
+        if (resetVelocity) {
+            this.velocity.set(0, 0, 0);
+            this.acceleration.set(0, 0, 0);
+            this.forces.set(0, 0, 0);
+            this.angularVelocity = 0;
+            this.angularAcceleration = 0;
+            this.torque = 0;
+            this.steeringAngle = 0;
+            this.lateralVelocity.set(0, 0, 0);
+            this.isDrifting = false;
+            this.driftAngle = 0;
+            this.isAccelerating = false;
+            this.isBraking = false;
+            this.isTurning = false;
+            this.isReversing = false;
+            this.isHandbraking = false;
+        }
     }
 }

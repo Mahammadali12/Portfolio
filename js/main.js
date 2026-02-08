@@ -40,7 +40,7 @@ class Application {
         // Initialize effects
         this.dustSystem = new DustParticleSystem(this.sceneManager.scene);
         this.driftSystem = new DriftTrailSystem(this.sceneManager.scene);
-        this.floatingObjects = new FloatingObjectManager(this.sceneManager.scene);
+        this.floatingObjects = new FloatingObjectManager(this.sceneManager.mainWorldGroup);
         
         // Initialize sound manager (skip on mobile for now)
         if (!isMobile) {
@@ -54,6 +54,9 @@ class Application {
             this.sceneManager,
             this.soundManager
         );
+        
+        // Pass car reference to UIManager for teleportation
+        this.uiManager.setCar(this.car);
         
         // Setup event listeners
         this.setupEventListeners();

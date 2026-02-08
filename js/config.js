@@ -232,6 +232,33 @@ export const CONFIG = {
         TARGET_SIZE: 8,               // Target size in world units (auto-scale to fit this)
         MIN_SCALE: 0.01,              // Minimum scale to ensure visibility
         EMISSIVE_INTENSITY: 0.3       // Glow intensity
+    },
+
+    // Projects World
+    PROJECTS_WORLD: {
+        CENTER: { x: 0, y: 0, z: 0 },
+        RADIUS: 40,                           // Radius of garage circle
+        GROUND_SIZE: 120,                     // Projects world ground pad
+        SPAWN_POSITION: { x: 0, y: 1, z: 0 },  // Car spawn in projects world center
+        SPAWN_ROTATION: 0,
+        MAIN_RETURN_POSITION: { x: 30, y: 1, z: 30 }, // Return to projects plate area
+        MAIN_RETURN_ROTATION: Math.PI,
+        EXIT_PORTAL_POSITION: { x: 0, y: 0, z: 0 },  // Center of the circle
+        EXIT_PORTAL_RADIUS: 6,
+        GARAGE_INTERACTION_RADIUS: 12,
+        GARAGE_SIZE: { width: 14, height: 10, depth: 16 },
+        DOOR_OPEN_SPEED: 2.0,                // Door opens in ~0.5s
+        ARTIFACT_REVEAL_SPEED: 1.5,
+        TELEPORT_FADE_MS: 400,
+        CINEMATIC_DURATION_MS: 1000,
+        ENTER_CAMERA_HEIGHT: 30,
+        ENTER_CAMERA_DISTANCE: 50,
+        BOUNDARY: {
+            minX: -70,
+            maxX: 70,
+            minZ: -70,
+            maxZ: 70
+        }
     }
 };
 
