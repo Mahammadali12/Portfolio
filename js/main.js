@@ -42,10 +42,7 @@ class Application {
         this.driftSystem = new DriftTrailSystem(this.sceneManager.scene);
         this.floatingObjects = new FloatingObjectManager(this.sceneManager.mainWorldGroup);
         
-        // Initialize sound manager (skip on mobile for now)
-        if (!isMobile) {
-            this.soundManager = new SoundManager();
-        }
+        // Sound manager disabled
         
         // Initialize UI - pass sceneManager for camera control and soundManager for interaction sounds
         this.uiManager = new UIManager(
